@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Paleta placeholder — verde "andino" como color de marca provisional.
+     Cámbiala aquí en cuanto tengas logo/manual de marca definitivo; todo el
+     resto de la UI referencia estos tokens, no colores sueltos. */
+  --color-brand: #2f6b4f;
+  --color-brand-dark: #204a37;
+  --color-brand-light: #eaf2ec;
+  --color-accent: #e2703a;
+
+  --color-cream: #f7f5f0;
+  --color-cream-dim: #eeebe2;
+  --color-ink: #1a1a1a;
+  --color-muted: #948d80;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  html::-webkit-scrollbar {
+    display: none;
+  }
+
+  body {
+    background-color: var(--color-cream);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  ::selection {
+    background-color: var(--color-brand-light);
+    color: var(--color-ink);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
