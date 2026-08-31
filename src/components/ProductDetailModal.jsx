@@ -34,45 +34,45 @@ export default function ProductDetailModal({ product, onClose }) {
   return (
     <Modal open onClose={onClose} title={product.name} maxWidth="max-w-lg">
       <div className="flex flex-col gap-5">
-        <div className="flex items-start gap-4">
-          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-cream-dim">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <div className="h-40 w-full shrink-0 overflow-hidden rounded-xl bg-white ring-1 ring-ink/10 sm:h-28 sm:w-28">
             {product.image_url ? (
-              <img src={product.image_url} alt="" className="h-full w-full object-cover" />
+              <img src={product.image_url} alt="" className="h-full w-full object-contain p-3" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-2xl">🛒</div>
+              <div className="flex h-full w-full items-center justify-center text-3xl">🛒</div>
             )}
           </div>
           <div className="min-w-0">
             {product.category?.name && (
-              <p className="text-xs font-semibold uppercase tracking-wide text-brand-dark">{product.category.name}</p>
+              <p className="text-sm font-semibold uppercase tracking-wide text-brand-dark">{product.category.name}</p>
             )}
-            {product.description && <p className="mt-1 text-sm text-ink/60">{product.description}</p>}
-            {outOfStock && <p className="mt-1 text-xs font-semibold text-red-600">Sin stock por ahora</p>}
+            {product.description && <p className="mt-1.5 text-base text-ink/70">{product.description}</p>}
+            {outOfStock && <p className="mt-1.5 text-sm font-semibold text-red-600">Sin stock por ahora</p>}
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-ink/8 pt-4">
-          <div className="flex items-center gap-3 rounded-full border border-ink/12 px-2 py-1">
+        <div className="flex flex-col gap-4 border-t border-ink/8 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center justify-center gap-4 rounded-full border-2 border-ink/12 px-2 py-1.5">
             <button
               type="button"
               aria-label="Disminuir cantidad"
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-xl font-bold text-ink/70 hover:bg-ink/5"
             >
               −
             </button>
-            <span className="w-5 text-center text-sm font-semibold tabular-nums">{quantity}</span>
+            <span className="w-6 text-center text-lg font-bold tabular-nums">{quantity}</span>
             <button
               type="button"
               aria-label="Aumentar cantidad"
               onClick={() => setQuantity((q) => q + 1)}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-xl font-bold text-ink/70 hover:bg-ink/5"
             >
               +
             </button>
           </div>
 
-          <Button size="lg" onClick={handleAdd} disabled={outOfStock}>
+          <Button size="lg" onClick={handleAdd} disabled={outOfStock} className="w-full sm:w-auto">
             Agregar · {formatPrice(unitPrice * quantity)}
           </Button>
         </div>

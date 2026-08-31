@@ -54,36 +54,36 @@ export default function ConfirmationPage() {
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand/10 text-3xl">✅</span>
           <h1 className="text-2xl font-black text-ink">¡Pedido confirmado!</h1>
-          <p className="text-sm text-ink/55">Aquí verás el estado de tu pedido en vivo, sin recargar.</p>
+          <p className="text-base text-ink/65">Aquí verás el estado de tu pedido en vivo, sin recargar.</p>
         </div>
 
         {loading ? (
-          <p className="py-10 text-center text-sm text-ink/40">Cargando resumen…</p>
+          <p className="py-10 text-center text-base text-ink/60">Cargando resumen…</p>
         ) : error || !order ? (
-          <p className="py-10 text-center text-sm text-red-600">No encontramos este pedido.</p>
+          <p className="py-10 text-center text-base text-red-600">No encontramos este pedido.</p>
         ) : (
           <div className="flex flex-col gap-4">
             <Card className="p-4">
               <div className="mb-3 flex items-center justify-between">
                 <Badge variant={STATUS_VARIANT[order.status] ?? 'neutral'}>{STATUS_LABEL[order.status] ?? 'En curso'}</Badge>
-                <span className="text-xs text-ink/40">{ORDER_TYPE_LABEL[order.order_type] ?? order.order_type}</span>
+                <span className="text-sm text-ink/60">{ORDER_TYPE_LABEL[order.order_type] ?? order.order_type}</span>
               </div>
-              {order.address && <p className="mb-3 text-sm text-ink/60">Entrega en: {order.address}</p>}
+              {order.address && <p className="mb-3 text-base text-ink/70">Entrega en: {order.address}</p>}
               <div className="flex flex-col gap-3">
                 {items.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between border-t border-ink/8 pt-3 text-sm first:border-t-0 first:pt-0">
-                    <p className="font-medium text-ink">
+                  <div key={item.id} className="flex items-center justify-between border-t border-ink/8 pt-3 text-base first:border-t-0 first:pt-0">
+                    <p className="font-semibold text-ink">
                       {item.quantity}× {item.product_name}
                     </p>
-                    <span className="shrink-0 tabular-nums text-ink/70">{formatPrice(Number(item.unit_price) * item.quantity)}</span>
+                    <span className="shrink-0 tabular-nums text-ink/75">{formatPrice(Number(item.unit_price) * item.quantity)}</span>
                   </div>
                 ))}
               </div>
             </Card>
 
             <Card className="flex items-center justify-between p-4">
-              <span className="font-semibold text-ink">Total del pedido</span>
-              <span className="text-xl font-black text-ink tabular-nums">{formatPrice(total)}</span>
+              <span className="text-lg font-bold text-ink">Total del pedido</span>
+              <span className="text-2xl font-black text-ink tabular-nums">{formatPrice(total)}</span>
             </Card>
           </div>
         )}

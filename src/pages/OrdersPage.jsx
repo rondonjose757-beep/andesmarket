@@ -40,17 +40,17 @@ export default function OrdersPage() {
   if (!customer || (!loading && orders.length === 0)) {
     return (
       <div className="flex flex-col items-center gap-3 py-16 text-center">
-        <p className="text-lg font-black text-ink">Aún no tienes pedidos</p>
-        <p className="max-w-xs text-sm text-ink/55">Cuando confirmes tu primer pedido, lo verás aquí con su estado en vivo.</p>
+        <p className="text-xl font-black text-ink">Aún no tienes pedidos</p>
+        <p className="max-w-xs text-base text-ink/65">Cuando confirmes tu primer pedido, lo verás aquí con su estado en vivo.</p>
         <Link to="/catalogo">
-          <Button className="mt-2">Ver el catálogo</Button>
+          <Button size="lg" className="mt-2">Ver el catálogo</Button>
         </Link>
       </div>
     )
   }
 
-  if (loading) return <p className="py-16 text-center text-sm text-ink/40">Cargando tus pedidos…</p>
-  if (error) return <p className="py-16 text-center text-sm text-red-600">No se pudieron cargar tus pedidos: {error}</p>
+  if (loading) return <p className="py-16 text-center text-base text-ink/60">Cargando tus pedidos…</p>
+  if (error) return <p className="py-16 text-center text-base text-red-600">No se pudieron cargar tus pedidos: {error}</p>
 
   return (
     <div className="flex flex-col gap-5">
@@ -64,16 +64,16 @@ export default function OrdersPage() {
             <Link key={order.id} to={`/pedido/${order.id}`}>
               <Card className="flex items-center justify-between gap-3 p-4 transition-shadow hover:shadow-md">
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={STATUS_VARIANT[order.status] ?? 'neutral'}>{STATUS_LABEL[order.status] ?? 'En curso'}</Badge>
-                    <span className="text-xs text-ink/40">{formatDateTime(order.created_at)}</span>
+                    <span className="text-sm text-ink/60">{formatDateTime(order.created_at)}</span>
                   </div>
-                  <p className="mt-1 text-xs text-ink/50">
+                  <p className="mt-1.5 text-sm text-ink/65">
                     {ORDER_TYPE_LABEL[order.order_type] ?? order.order_type} · {order.order_items.length} producto
                     {order.order_items.length === 1 ? '' : 's'}
                   </p>
                 </div>
-                <span className="shrink-0 text-lg font-black text-ink tabular-nums">{formatPrice(total)}</span>
+                <span className="shrink-0 text-xl font-black text-ink tabular-nums">{formatPrice(total)}</span>
               </Card>
             </Link>
           )

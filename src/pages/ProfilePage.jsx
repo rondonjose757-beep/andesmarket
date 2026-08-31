@@ -40,7 +40,7 @@ export default function ProfilePage() {
       <div className="flex flex-col gap-5">
         <h1 className="text-2xl font-black text-ink">Tu perfil</h1>
         <Card className="p-5">
-          <p className="mb-4 text-sm text-ink/60">Aún no tienes un perfil guardado. Complétalo para agilizar tu próximo pedido.</p>
+          <p className="mb-4 text-base text-ink/70">Aún no tienes un perfil guardado. Complétalo para agilizar tu próximo pedido.</p>
           <ProfileForm submitLabel="Guardar perfil" />
         </Card>
       </div>
@@ -66,10 +66,10 @@ export default function ProfilePage() {
               <Input id="perfil-phone" type="tel" inputMode="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} />
             </Field>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => setEditing(false)} disabled={saving}>
+              <Button type="button" variant="secondary" size="lg" onClick={() => setEditing(false)} disabled={saving}>
                 Cancelar
               </Button>
-              <Button type="submit" loading={saving}>
+              <Button type="submit" size="lg" loading={saving}>
                 Guardar
               </Button>
             </div>
@@ -77,10 +77,10 @@ export default function ProfilePage() {
         ) : (
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="font-semibold text-ink">{customer.name}</p>
-              <p className="text-sm text-ink/55">{customer.phone}</p>
+              <p className="text-lg font-bold text-ink">{customer.name}</p>
+              <p className="text-base text-ink/65">{customer.phone}</p>
             </div>
-            <Button variant="secondary" size="sm" onClick={startEditing}>
+            <Button variant="secondary" onClick={startEditing}>
               Editar
             </Button>
           </div>

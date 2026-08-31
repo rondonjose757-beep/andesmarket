@@ -6,9 +6,9 @@ const buttonVariants = {
 }
 
 const buttonSizes = {
-  sm: 'h-8 px-3 text-sm gap-1.5',
-  md: 'h-10 px-4 text-sm gap-2',
-  lg: 'h-12 px-6 text-base gap-2',
+  sm: 'h-10 px-4 text-sm gap-1.5',
+  md: 'h-12 px-5 text-base gap-2',
+  lg: 'h-14 px-7 text-lg gap-2.5',
 }
 
 export function Button({
@@ -44,7 +44,7 @@ export function IconButton({ label, className = '', children, ...props }) {
     <button
       type="button"
       aria-label={label}
-      className={`inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink/60 transition-colors duration-150 hover:bg-ink/5 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${className}`}
+      className={`inline-flex h-11 w-11 items-center justify-center rounded-lg text-ink/70 transition-colors duration-150 hover:bg-ink/5 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${className}`}
       {...props}
     >
       {children}
@@ -54,15 +54,15 @@ export function IconButton({ label, className = '', children, ...props }) {
 
 export function Field({ label, htmlFor, error, hint, required, children }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={htmlFor} className="text-sm font-semibold text-ink/80">
+    <div className="flex flex-col gap-2">
+      <label htmlFor={htmlFor} className="text-base font-bold text-ink">
         {label}
         {required && <span className="text-red-600"> *</span>}
       </label>
       {children}
-      {hint && !error && <p className="text-xs text-ink/45">{hint}</p>}
+      {hint && !error && <p className="text-sm text-ink/60">{hint}</p>}
       {error && (
-        <p className="text-xs font-medium text-red-600" aria-live="polite">
+        <p className="text-sm font-semibold text-red-600" aria-live="polite">
           {error}
         </p>
       )}
@@ -71,7 +71,7 @@ export function Field({ label, htmlFor, error, hint, required, children }) {
 }
 
 const controlClasses =
-  'w-full rounded-lg border border-ink/15 bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink/35 transition-shadow duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:bg-cream-dim disabled:text-ink/40'
+  'w-full rounded-lg border-2 border-ink/15 bg-white px-4 py-3.5 text-base text-ink placeholder:text-ink/40 transition-shadow duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:bg-cream-dim disabled:text-ink/40'
 
 export function Input({ className = '', ...props }) {
   return <input className={`${controlClasses} ${className}`} {...props} />

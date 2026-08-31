@@ -23,11 +23,11 @@ export function Modal({ open, onClose, title, children, maxWidth = 'max-w-lg' })
         className={`relative w-full ${maxWidth} overscroll-contain rounded-2xl bg-white shadow-2xl shadow-ink/20 max-h-[calc(100svh-2rem)] flex flex-col`}
       >
         <div className="flex items-center justify-between border-b border-ink/8 px-6 py-4">
-          <h2 id="modal-title" className="text-lg font-bold text-ink">
+          <h2 id="modal-title" className="text-xl font-bold text-ink">
             {title}
           </h2>
           <IconButton label="Cerrar" onClick={onClose}>
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path strokeLinecap="round" d="M18 6L6 18M6 6l12 12" />
             </svg>
           </IconButton>

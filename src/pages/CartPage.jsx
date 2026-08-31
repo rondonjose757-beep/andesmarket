@@ -54,9 +54,9 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center gap-3 py-16 text-center">
-        <p className="text-lg font-black text-ink">Tu carrito está vacío</p>
-        <p className="max-w-xs text-sm text-ink/55">Agrega productos del catálogo para armar tu pedido.</p>
-        <Button className="mt-2" onClick={() => navigate('/catalogo')}>
+        <p className="text-xl font-black text-ink">Tu carrito está vacío</p>
+        <p className="max-w-xs text-base text-ink/65">Agrega productos del catálogo para armar tu pedido.</p>
+        <Button size="lg" className="mt-2" onClick={() => navigate('/catalogo')}>
           Ver el catálogo
         </Button>
       </div>
@@ -68,25 +68,25 @@ export default function CartPage() {
       <h1 className="text-2xl font-black text-ink">Tu carrito</h1>
 
       <Card className="p-4">
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           {items.map((item) => (
-            <div key={item.productId} className="flex items-start justify-between gap-3 border-t border-ink/8 pt-3 first:border-t-0 first:pt-0">
+            <div key={item.productId} className="flex items-start justify-between gap-3 border-t border-ink/8 pt-4 first:border-t-0 first:pt-0">
               <div className="min-w-0">
-                <p className="font-medium text-ink">{item.productName}</p>
-                <div className="mt-1.5 flex items-center gap-2">
+                <p className="text-base font-bold text-ink">{item.productName}</p>
+                <div className="mt-2 flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                    className="flex h-6 w-6 items-center justify-center rounded-full border border-ink/15 text-ink/60 hover:bg-ink/5"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-ink/15 text-lg font-bold text-ink/70 hover:bg-ink/5"
                     aria-label="Disminuir cantidad"
                   >
                     −
                   </button>
-                  <span className="w-4 text-center text-xs font-semibold tabular-nums">{item.quantity}</span>
+                  <span className="w-6 text-center text-base font-bold tabular-nums">{item.quantity}</span>
                   <button
                     type="button"
                     onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                    className="flex h-6 w-6 items-center justify-center rounded-full border border-ink/15 text-ink/60 hover:bg-ink/5"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-ink/15 text-lg font-bold text-ink/70 hover:bg-ink/5"
                     aria-label="Aumentar cantidad"
                   >
                     +
@@ -94,26 +94,26 @@ export default function CartPage() {
                   <button
                     type="button"
                     onClick={() => removeItem(item.productId)}
-                    className="ml-1 text-xs font-semibold text-red-600 hover:underline"
+                    className="ml-2 text-sm font-bold text-red-600 hover:underline"
                   >
                     Quitar
                   </button>
                 </div>
               </div>
-              <span className="shrink-0 text-sm font-semibold tabular-nums text-ink">{formatPrice(item.unitPrice * item.quantity)}</span>
+              <span className="shrink-0 text-base font-bold tabular-nums text-ink">{formatPrice(item.unitPrice * item.quantity)}</span>
             </div>
           ))}
         </div>
       </Card>
 
       <Card className="p-4">
-        <h2 className="mb-3 text-base font-black text-ink">Método de entrega</h2>
+        <h2 className="mb-3 text-lg font-black text-ink">Método de entrega</h2>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={() => setOrderType('retiro')}
-            className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors ${
-              orderType === 'retiro' ? 'border-brand bg-brand/10 text-brand-dark' : 'border-ink/12 text-ink/60 hover:border-ink/25'
+            className={`flex-1 rounded-xl border-2 px-4 py-3.5 text-base font-bold transition-colors ${
+              orderType === 'retiro' ? 'border-brand bg-brand/10 text-brand-dark' : 'border-ink/15 text-ink/70 hover:border-ink/30'
             }`}
           >
             Retiro en tienda
@@ -121,8 +121,8 @@ export default function CartPage() {
           <button
             type="button"
             onClick={() => setOrderType('delivery')}
-            className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors ${
-              orderType === 'delivery' ? 'border-brand bg-brand/10 text-brand-dark' : 'border-ink/12 text-ink/60 hover:border-ink/25'
+            className={`flex-1 rounded-xl border-2 px-4 py-3.5 text-base font-bold transition-colors ${
+              orderType === 'delivery' ? 'border-brand bg-brand/10 text-brand-dark' : 'border-ink/15 text-ink/70 hover:border-ink/30'
             }`}
           >
             Delivery
@@ -144,8 +144,8 @@ export default function CartPage() {
       </Card>
 
       <Card className="flex items-center justify-between p-4">
-        <span className="font-semibold text-ink">Total del pedido</span>
-        <span className="text-xl font-black text-ink tabular-nums">{formatPrice(grandTotal)}</span>
+        <span className="text-lg font-bold text-ink">Total del pedido</span>
+        <span className="text-2xl font-black text-ink tabular-nums">{formatPrice(grandTotal)}</span>
       </Card>
 
       <Button size="lg" onClick={handleConfirmClick} loading={confirming}>

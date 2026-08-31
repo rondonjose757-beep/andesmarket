@@ -34,8 +34,8 @@ export default function CatalogPage() {
       ? groupedByCategory
       : groupedByCategory.filter(([, items]) => items[0]?.category?.id === activeCategoryId)
 
-  if (loading) return <p className="py-16 text-center text-sm text-ink/40">Cargando catálogo…</p>
-  if (error) return <p className="py-16 text-center text-sm text-red-600">No se pudo cargar el catálogo: {error}</p>
+  if (loading) return <p className="py-16 text-center text-base text-ink/60">Cargando catálogo…</p>
+  if (error) return <p className="py-16 text-center text-base text-red-600">No se pudo cargar el catálogo: {error}</p>
 
   return (
     <div className="flex flex-col gap-5">
@@ -45,8 +45,8 @@ export default function CatalogPage() {
         <button
           type="button"
           onClick={() => setActiveCategoryId('all')}
-          className={`shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
-            activeCategoryId === 'all' ? 'border-brand bg-brand/10 text-brand-dark' : 'border-ink/12 text-ink/60 hover:border-ink/25'
+          className={`shrink-0 rounded-full border-2 px-4 py-2.5 text-base font-semibold transition-colors ${
+            activeCategoryId === 'all' ? 'border-brand bg-brand/10 text-brand-dark' : 'border-ink/15 text-ink/70 hover:border-ink/30'
           }`}
         >
           Todas
@@ -56,8 +56,8 @@ export default function CatalogPage() {
             key={category.id}
             type="button"
             onClick={() => setActiveCategoryId(category.id)}
-            className={`shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
-              activeCategoryId === category.id ? 'border-brand bg-brand/10 text-brand-dark' : 'border-ink/12 text-ink/60 hover:border-ink/25'
+            className={`shrink-0 rounded-full border-2 px-4 py-2.5 text-base font-semibold transition-colors ${
+              activeCategoryId === category.id ? 'border-brand bg-brand/10 text-brand-dark' : 'border-ink/15 text-ink/70 hover:border-ink/30'
             }`}
           >
             {category.name}
@@ -66,13 +66,13 @@ export default function CatalogPage() {
       </div>
 
       {filteredGroups.length === 0 ? (
-        <p className="py-10 text-center text-sm text-ink/50">Todavía no hay productos en esta categoría.</p>
+        <p className="py-10 text-center text-base text-ink/60">Todavía no hay productos en esta categoría.</p>
       ) : (
         <div className="flex flex-col gap-8">
           {filteredGroups.map(([categoryName, items]) => (
             <div key={categoryName}>
-              <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink/40">{categoryName}</h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <h2 className="mb-3 text-base font-bold uppercase tracking-wide text-ink/60">{categoryName}</h2>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {items.map((product) => (
                   <ProductCard key={product.id} product={product} onSelect={setSelectedProduct} />
                 ))}

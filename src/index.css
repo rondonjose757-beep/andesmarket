@@ -3,18 +3,18 @@
 @theme {
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
 
-  /* Paleta placeholder — verde "andino" como color de marca provisional.
-     Cámbiala aquí en cuanto tengas logo/manual de marca definitivo; todo el
-     resto de la UI referencia estos tokens, no colores sueltos. */
-  --color-brand: #2f6b4f;
-  --color-brand-dark: #204a37;
-  --color-brand-light: #eaf2ec;
+  /* Paleta de marca AndesMarket — tomada de la referencia visual FrushGo
+     (verde menta brillante + negro suave + blanco). Todo el resto de la UI
+     referencia estos tokens, no colores sueltos. */
+  --color-brand: #52c979;
+  --color-brand-dark: #327c4b;
+  --color-brand-light: #eaf8ee;
   --color-accent: #e2703a;
 
-  --color-cream: #f7f5f0;
-  --color-cream-dim: #eeebe2;
-  --color-ink: #1a1a1a;
-  --color-muted: #948d80;
+  --color-cream: #f1f3f1;
+  --color-cream-dim: #e7e9e7;
+  --color-ink: #131e15;
+  --color-muted: #6c756e;
 }
 
 @layer base {
