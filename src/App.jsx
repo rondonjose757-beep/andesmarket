@@ -3,7 +3,6 @@ import { AuthProvider } from './state/AuthProvider'
 import { CartProvider } from './state/CartProvider'
 import { ToastProvider } from './shared/components/Toast'
 import PwaInstall from './pwa/PwaInstall'
-import InstallPrompt from './pwa/InstallPrompt'
 import AppLayout from './layouts/AppLayout'
 import HomePage from './pages/HomePage'
 import CatalogPage from './pages/CatalogPage'
@@ -18,7 +17,6 @@ export default function App() {
       <ToastProvider>
         <CartProvider>
           <PwaInstall />
-          <InstallPrompt />
           <Routes>
             <Route element={<AppLayout />}>
               <Route path="/" element={<HomePage />} />

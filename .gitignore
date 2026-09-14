@@ -29,3 +29,6 @@ dev-dist
 *.sln
 *.sw?
 .claude/
+.vercel
+.env*
+.playwright-mcp/

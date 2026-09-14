@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react'
 import { useCatalog } from '../hooks/useCatalog'
 import PromoCarousel from '../components/PromoCarousel'
 import CategoryChips from '../components/CategoryChips'
+import CategorySection from '../components/CategorySection'
 import ProductCard from '../components/ProductCard'
 import ProductDetailModal from '../components/ProductDetailModal'
 
-const FEATURED_COUNT = 8
+const FEATURED_COUNT = 5
 
 export default function HomePage() {
   const { products, categories, loading, error } = useCatalog()
@@ -50,6 +51,17 @@ export default function HomePage() {
           </div>
         )}
       </section>
+
+      {categories.map((category, index) => (
+        <div key={category.id} className="animate-[fade-up_0.4s_ease-out_both]" style={{ animationDelay: `${0.1 + (index + 1) * 0.05}s` }}>
+          <CategorySection
+            title={category.name}
+            to={`/catalogo?categoria=${category.id}`}
+            products={products.filter((p) => p.category?.id === category.id).slice(0, 10)}
+            onSelect={setSelectedProduct}
+          />
+        </div>
+      ))}
 
       {selectedProduct && <ProductDetailModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />}
     </div>
