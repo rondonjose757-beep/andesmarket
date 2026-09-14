@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import AndesPattern from './AndesPattern'
+import BrandLogo from './BrandLogo'
 import CartButton from './CartButton'
 import SearchBar from './SearchBar'
 
@@ -19,9 +20,11 @@ export default function CatalogHeader({ query, onQueryChange, categories, active
             <path d="M19 12H5m6-6-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </Link>
-        <p className="min-w-0 flex-1 truncate text-center font-display text-xl font-extrabold tracking-[-0.03em]">
-          AndesMarket
-        </p>
+        <div className="min-w-0 flex-1">
+          <div className="mx-auto max-w-44">
+            <BrandLogo />
+          </div>
+        </div>
         <CartButton />
       </div>
       <div className="relative mx-auto max-w-5xl px-4 pb-3 sm:px-6">

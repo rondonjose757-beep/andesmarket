@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import AndesPattern from './AndesPattern'
+import BrandLogo from './BrandLogo'
 import CartButton from './CartButton'
 import SearchBar from './SearchBar'
 
@@ -10,18 +11,6 @@ function ProfileIcon() {
       <circle cx="12" cy="8" r="3.6" />
       <path d="M4.5 20.5a7.5 7.5 0 0 1 15 0" strokeLinecap="round" />
     </svg>
-  )
-}
-
-// Marca provisional: cordillera con nieve dentro del cuadro de esquina redondeada.
-function MountainMark() {
-  return (
-    <span className="flex h-10 w-10 items-center justify-center rounded-[13px] rounded-tr-[20px] bg-white text-brand-dark shadow-md shadow-brand-deep/25">
-      <svg className="h-[26px] w-[26px]" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M1.5 19.5 9 6.2l3.7 6.3 2.5-3.6 7.3 10.6Z" fill="currentColor" />
-        <path d="m9 6.2 2.4 4.1-1.3-.7-1.1 1.3-1.1-1.3-1.3.7Z" className="fill-brand-light" />
-      </svg>
-    </span>
   )
 }
 
@@ -59,12 +48,10 @@ export default function Header({ hero = false }) {
       <header className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 pb-1 pt-[max(14px,env(safe-area-inset-top))] sm:px-6">
         <Link
           to="/"
-          className="flex min-h-11 items-center gap-2.5 rounded-2xl text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+          aria-label="AndesMarket, ir al inicio"
+          className="block min-h-11 w-64 min-w-0 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
         >
-          <MountainMark />
-          <span className="font-display text-[25px] font-extrabold leading-none tracking-[-0.035em] [text-shadow:0_1px_12px_rgb(20_60_36/0.25)]">
-            AndesMarket
-          </span>
+          <BrandLogo />
         </Link>
         <Link
           to="/perfil"

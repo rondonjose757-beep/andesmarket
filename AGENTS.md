@@ -80,7 +80,7 @@ pages/
   OrdersPage.jsx         "/mis-pedidos" Historial de pedidos del cliente
   ProfilePage.jsx        "/perfil"      Ver/editar nombre, teléfono, dirección
   ConfirmationPage.jsx   "/pedido/:orderId" (fuera del layout) Detalle + estado en vivo por Realtime
-components/              Piezas de UI de la tienda (ProductCard, CompactProductCard,
+components/              Piezas de UI de la tienda (BrandLogo, ProductCard, CompactProductCard,
                          CategorySection, CategoryChips, CatalogHeader, SearchBar,
                          CartButton, FloatingCart, PromoCarousel, PromoBanner,
                          ProductDetailModal, ProductImage, CatalogState, CheckoutModal, ProfileForm, Header, InfoBanner,
@@ -167,7 +167,10 @@ y ajusta las políticas RLS. Nunca desactives RLS para "arreglar" un error de pe
 
 ## Pendientes conocidos
 
-- Logo real en `Header.jsx` e íconos definitivos en `public/icons/`.
+- Logo aprobado (carrito con montaña) en `src/assets/andesmarket-logo.png`, compartido
+  por `Header.jsx` y `CatalogHeader.jsx` mediante `BrandLogo.jsx`. Se muestra sobre
+  fondo claro y se encuadran sus márgenes transparentes sin modificar la imagen.
+  Siguen pendientes los íconos definitivos en `public/icons/`.
 - No hay panel de administración, pagos en línea, variantes de producto ni
   control de stock al confirmar pedidos.
 - Ocho pruebas de navegador cubren catálogo, compra rápida, subcategorías, filtros,
