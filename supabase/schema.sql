@@ -1,5 +1,6 @@
 -- AndesMarket — esquema inicial de Supabase
--- Pega este archivo completo en el SQL Editor de tu proyecto Supabase y ejecútalo.
+-- Solo para una base nueva: pega este archivo completo en el SQL Editor.
+-- Para una base existente utiliza los cambios revisados de supabase/updates/.
 
 create extension if not exists "pgcrypto";
 
@@ -10,6 +11,16 @@ create table categories (
   name text not null,
   sort_order int not null default 0,
   created_at timestamptz not null default now()
+);
+
+create table public.subcategories (
+  id uuid primary key default gen_random_uuid(),
+  category_id uuid not null references public.categories(id) on delete restrict,
+  name text not null check (length(trim(name)) > 0),
+  sort_order int not null default 0,
+  created_at timestamptz not null default now(),
+  unique (category_id, name),
+  unique (id, category_id)
 );
 
 create table products (
@@ -25,6 +36,22 @@ create table products (
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
+
+alter table public.products
+  add column subcategory_id uuid,
+  add constraint products_subcategory_requires_category
+    check (subcategory_id is null or category_id is not null),
+  add constraint products_subcategory_category_fkey
+    foreign key (subcategory_id, category_id)
+    references public.subcategories(id, category_id);
+
+create index products_subcategory_category_idx on public.products (subcategory_id, category_id);
+alter table public.subcategories enable row level security;
+create policy "subcategories are publicly readable" on public.subcategories
+  for select to anon, authenticated using (true);
+revoke all on public.subcategories from public, anon, authenticated;
+grant select on public.subcategories to anon, authenticated;
+grant all on public.subcategories to service_role;
 
 -- ─── Clientes (autenticación anónima) ───────────────────────────────────
 -- Cada visitante recibe una sesión anónima de Supabase Auth (ver
