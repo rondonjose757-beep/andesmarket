@@ -1,82 +1,111 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Modal } from '../shared/components/Modal'
-import { Button } from '../shared/components/ui'
+import { Button, IconButton } from '../shared/components/ui'
 import { computeDiscountedPrice, formatPrice } from '../lib/format'
+import { productTone } from '../lib/tones'
 import { useCart } from '../state/CartProvider'
 import { useToast } from '../shared/components/Toast'
+import ProductImage from './ProductImage'
+
+function StepIcon({ plus = false }) {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" aria-hidden="true">
+      <path strokeLinecap="round" d={plus ? 'M12 5v14M5 12h14' : 'M5 12h14'} />
+    </svg>
+  )
+}
 
 export default function ProductDetailModal({ product, onClose }) {
   const { addItem } = useCart()
   const notify = useToast()
-  const unitPrice = computeDiscountedPrice(product)
+  const price = computeDiscountedPrice(product)
+  const hasDiscount = price < Number(product.price)
   const outOfStock = product.stock != null && product.stock <= 0
-
+  const tone = productTone(product)
   const [quantity, setQuantity] = useState(1)
 
-  useEffect(() => {
-    setQuantity(1)
-  }, [product.id])
-
   function handleAdd() {
+    if (outOfStock) return
     addItem(
-      {
-        productId: product.id,
-        productName: product.name,
-        productImage: product.image_url,
-        unitPrice,
-      },
+      { productId: product.id, productName: product.name, productImage: product.image_url, unitPrice: price },
       quantity,
     )
     notify(`${product.name} agregado al carrito.`, 'success')
     onClose()
   }
 
-  return (
-    <Modal open onClose={onClose} title={product.name} maxWidth="max-w-lg">
-      <div className="flex flex-col gap-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <div className="h-40 w-full shrink-0 overflow-hidden rounded-xl bg-white ring-1 ring-ink/10 sm:h-28 sm:w-28">
-            {product.image_url ? (
-              <img src={product.image_url} alt="" className="h-full w-full object-contain p-3" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-3xl">🛒</div>
-            )}
-          </div>
-          <div className="min-w-0">
-            {product.category?.name && (
-              <p className="text-sm font-semibold uppercase tracking-wide text-brand-dark">{product.category.name}</p>
-            )}
-            {product.description && <p className="mt-1.5 text-base text-ink/70">{product.description}</p>}
-            {outOfStock && <p className="mt-1.5 text-sm font-semibold text-red-600">Sin stock por ahora</p>}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-4 border-t border-ink/8 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center justify-center gap-4 rounded-full border-2 border-ink/12 px-2 py-1.5">
-            <button
-              type="button"
-              aria-label="Disminuir cantidad"
-              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="flex h-11 w-11 items-center justify-center rounded-full text-xl font-bold text-ink/70 hover:bg-ink/5"
-            >
-              −
-            </button>
-            <span className="w-6 text-center text-lg font-bold tabular-nums">{quantity}</span>
-            <button
-              type="button"
-              aria-label="Aumentar cantidad"
-              onClick={() => setQuantity((q) => q + 1)}
-              className="flex h-11 w-11 items-center justify-center rounded-full text-xl font-bold text-ink/70 hover:bg-ink/5"
-            >
-              +
-            </button>
-          </div>
-
-          <Button size="lg" onClick={handleAdd} disabled={outOfStock} className="w-full sm:w-auto">
-            Agregar · {formatPrice(unitPrice * quantity)}
-          </Button>
-        </div>
+  const hero = (
+    <div className={`tone-${tone} relative flex h-[17rem] items-center justify-center overflow-hidden bg-(--tone-media) sm:h-80`}>
+      <span
+        aria-hidden="true"
+        className="absolute -bottom-24 left-1/2 h-48 w-[140%] -translate-x-1/2 rounded-[50%] bg-(--tone-shelf)"
+      />
+      <span aria-hidden="true" className="absolute bottom-14 left-1/2 h-5 w-32 -translate-x-1/2 rounded-full bg-(--tone-deep) opacity-20 blur-lg" />
+      <div className={`relative mb-6 h-44 w-44 animate-pop-in sm:h-52 sm:w-52 ${outOfStock ? 'opacity-60 grayscale' : ''}`}>
+        <ProductImage src={product.image_url} />
       </div>
+      {hasDiscount && (
+        <span className="absolute left-4 top-5 -rotate-12 rounded-full bg-accent-dark px-3 py-1.5 font-display text-lg font-extrabold leading-none text-white shadow-lg shadow-accent-dark/30 ring-4 ring-white/50">
+          −{Math.round((1 - price / Number(product.price)) * 100)}%
+        </span>
+      )}
+    </div>
+  )
+
+  const eyebrow = (
+    <p className={`tone-${tone} mb-2 text-[11px] font-extrabold uppercase tracking-[0.16em] text-(--tone-deep)`}>
+      {[product.category?.name, product.subcategory?.name].filter(Boolean).join(' · ')}
+    </p>
+  )
+
+  const footer = (
+    <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-1 rounded-full bg-cream p-1">
+        <IconButton
+          label="Disminuir cantidad"
+          disabled={quantity === 1}
+          onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+          className="bg-white !text-ink shadow-sm disabled:opacity-40"
+        >
+          <StepIcon />
+        </IconButton>
+        <span className="min-w-7 text-center font-display text-lg font-extrabold tabular-nums">{quantity}</span>
+        <IconButton
+          label="Aumentar cantidad"
+          disabled={outOfStock}
+          onClick={() => setQuantity((q) => q + 1)}
+          className="bg-white !text-ink shadow-sm disabled:opacity-40"
+        >
+          <StepIcon plus />
+        </IconButton>
+      </div>
+      <Button onClick={handleAdd} disabled={outOfStock} className="min-w-0 flex-1 !px-4">
+        {outOfStock ? 'Agotado' : `Agregar · ${formatPrice(price * quantity)}`}
+      </Button>
+    </div>
+  )
+
+  return (
+    <Modal open sheet onClose={onClose} title={product.name} footer={footer} hero={hero} eyebrow={eyebrow}>
+      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <p className="font-display text-[34px] font-extrabold leading-none tracking-tight tabular-nums text-ink">
+          {formatPrice(price)}
+        </p>
+        {hasDiscount && (
+          <>
+            <del className="text-base font-medium tabular-nums text-muted">{formatPrice(product.price)}</del>
+            <span className="rounded-full bg-accent-light px-2.5 py-1 text-xs font-bold text-accent-dark">
+              Ahorras {formatPrice(Number(product.price) - price)}
+            </span>
+          </>
+        )}
+      </div>
+      {product.description && (
+        <p className="mt-4 whitespace-pre-line text-[15px] leading-relaxed text-muted">{product.description}</p>
+      )}
+      {outOfStock && (
+        <p className="mt-4 rounded-2xl bg-danger-light px-4 py-3 text-sm font-semibold text-danger">Sin stock por ahora</p>
+      )}
     </Modal>
   )
 }

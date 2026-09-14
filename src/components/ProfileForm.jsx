@@ -26,7 +26,7 @@ export default function ProfileForm({ onSuccess, submitLabel = 'Continuar' }) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
       {error && (
-        <div role="alert" className="rounded-lg border border-red-600/25 bg-red-600/5 px-3.5 py-2.5 text-sm font-medium text-red-600">
+        <div role="alert" className="rounded-2xl bg-danger-light px-4 py-3 text-sm font-semibold text-danger">
           {error}
         </div>
       )}
@@ -40,6 +40,7 @@ export default function ProfileForm({ onSuccess, submitLabel = 'Continuar' }) {
           required
           value={name}
           onChange={(event) => setName(event.target.value)}
+          className="bg-cream"
         />
       </Field>
 
@@ -54,6 +55,7 @@ export default function ProfileForm({ onSuccess, submitLabel = 'Continuar' }) {
           required
           value={phone}
           onChange={(event) => setPhone(event.target.value)}
+          className="bg-cream"
         />
       </Field>
 

@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { formatPrice } from '../lib/format'
-import { STATUS_LABEL, STATUS_VARIANT, ORDER_TYPE_LABEL } from '../lib/orderStatus'
-import { Badge, Button, Card } from '../shared/components/ui'
+import { STATUS_FLOW, STATUS_LABEL, STATUS_VARIANT, ORDER_TYPE_LABEL } from '../lib/orderStatus'
+import { Badge, Card } from '../shared/components/ui'
+import AndesPattern from '../components/AndesPattern'
 
 export default function ConfirmationPage() {
   const { orderId } = useParams()
@@ -47,51 +48,99 @@ export default function ConfirmationPage() {
   }, [orderId])
 
   const total = useMemo(() => items.reduce((sum, item) => sum + Number(item.unit_price) * item.quantity, 0), [items])
+  const step = order ? STATUS_FLOW.indexOf(order.status) : -1
 
   return (
-    <main className="min-h-svh bg-cream px-4 py-8 sm:px-6">
-      <div className="mx-auto max-w-xl">
-        <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand/10 text-3xl">✅</span>
-          <h1 className="text-2xl font-black text-ink">¡Pedido confirmado!</h1>
-          <p className="text-base text-ink/65">Aquí verás el estado de tu pedido en vivo, sin recargar.</p>
+    <main className="relative isolate min-h-svh overflow-x-clip bg-cream px-4 pb-10 pt-[max(24px,env(safe-area-inset-top))] sm:px-6">
+      <div aria-hidden="true" className="andes-hero absolute inset-x-0 top-0 -z-10 h-[340px] overflow-hidden">
+        <AndesPattern className="text-white/25 [mask-image:linear-gradient(to_bottom,black_20%,transparent_70%)]" />
+      </div>
+      <div className="mx-auto flex max-w-xl flex-col gap-4">
+        <div className="relative animate-fade-up overflow-hidden rounded-[32px] rounded-tr-[80px] bg-brand-deep px-6 pb-8 pt-9 text-center text-white shadow-float">
+          <AndesPattern className="text-white/10" />
+          <span aria-hidden="true" className="absolute -right-10 -top-12 h-48 w-48 rounded-full bg-brand/40 blur-3xl" />
+          <span
+            aria-hidden="true"
+            className="relative mx-auto flex h-20 w-20 animate-pop-in items-center justify-center rounded-full bg-brand text-brand-deep ring-8 ring-white/10 [animation-delay:150ms]"
+          >
+            <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m5 12.5 4.5 4.5L19 7.5" />
+            </svg>
+          </span>
+          <h1 className="relative mt-5 font-display text-[32px] font-extrabold leading-none tracking-[-0.035em]">
+            ¡Pedido confirmado!
+          </h1>
+          <p className="relative mx-auto mt-3 max-w-xs text-[15px] leading-snug text-white/85">
+            Aquí verás el estado de tu pedido en vivo, sin recargar.
+          </p>
         </div>
 
         {loading ? (
-          <p className="py-10 text-center text-base text-ink/60">Cargando resumen…</p>
+          <div role="status" aria-label="Cargando resumen" className="flex flex-col gap-4">
+            <div className="h-36 animate-pulse rounded-[24px] bg-white shadow-card" />
+            <div className="h-20 animate-pulse rounded-[24px] bg-white shadow-card" />
+          </div>
         ) : error || !order ? (
-          <p className="py-10 text-center text-base text-red-600">No encontramos este pedido.</p>
+          <p role="alert" className="rounded-[24px] bg-danger-light px-5 py-6 text-center text-[15px] font-semibold text-danger">
+            No encontramos este pedido.
+          </p>
         ) : (
-          <div className="flex flex-col gap-4">
-            <Card className="p-4">
-              <div className="mb-3 flex items-center justify-between">
+          <>
+            <Card className="animate-fade-up p-5 [animation-delay:80ms]">
+              <div className="flex items-center justify-between gap-3">
                 <Badge variant={STATUS_VARIANT[order.status] ?? 'neutral'}>{STATUS_LABEL[order.status] ?? 'En curso'}</Badge>
-                <span className="text-sm text-ink/60">{ORDER_TYPE_LABEL[order.order_type] ?? order.order_type}</span>
+                <span className="text-sm font-semibold text-muted">{ORDER_TYPE_LABEL[order.order_type] ?? order.order_type}</span>
               </div>
-              {order.address && <p className="mb-3 text-base text-ink/70">Entrega en: {order.address}</p>}
-              <div className="flex flex-col gap-3">
+              {step >= 0 && (
+                <ol aria-label="Progreso del pedido" className="mt-5 grid grid-cols-4 gap-1.5">
+                  {STATUS_FLOW.map((status, index) => (
+                    <li
+                      key={status}
+                      aria-current={index === step ? 'step' : undefined}
+                      className="flex flex-col gap-2"
+                    >
+                      <span
+                        className={`h-2 rounded-full transition-colors duration-500 ${index < step ? 'bg-brand-dark' : index === step ? 'animate-pulse bg-brand' : 'bg-cream-dim'}`}
+                      />
+                      <span className={`text-[11px] font-bold leading-tight ${index <= step ? 'text-ink' : 'text-muted'}`}>
+                        {STATUS_LABEL[status]}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              {order.address && (
+                <p className="mt-5 rounded-2xl bg-cream px-4 py-3 text-sm leading-relaxed text-ink/85">
+                  <span className="font-bold text-ink">Entrega en:</span> {order.address}
+                </p>
+              )}
+              <ul className="mt-4 divide-y divide-ink/5">
                 {items.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between border-t border-ink/8 pt-3 text-base first:border-t-0 first:pt-0">
-                    <p className="font-semibold text-ink">
-                      {item.quantity}× {item.product_name}
-                    </p>
+                  <li key={item.id} className="flex items-center gap-3 py-3 text-[15px]">
+                    <span className="flex h-8 min-w-8 shrink-0 items-center justify-center rounded-full bg-brand-light px-2 font-display text-sm font-extrabold tabular-nums text-brand-dark">
+                      {item.quantity}×
+                    </span>
+                    <p className="min-w-0 flex-1 font-semibold text-ink">{item.product_name}</p>
                     <span className="shrink-0 tabular-nums text-ink/75">{formatPrice(Number(item.unit_price) * item.quantity)}</span>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </Card>
 
-            <Card className="flex items-center justify-between p-4">
-              <span className="text-lg font-bold text-ink">Total del pedido</span>
-              <span className="text-2xl font-black text-ink tabular-nums">{formatPrice(total)}</span>
+            <Card className="flex animate-fade-up items-end justify-between gap-3 p-5 [animation-delay:160ms]">
+              <span className="text-base font-bold text-ink">Total del pedido</span>
+              <span className="font-display text-[32px] font-extrabold leading-none tracking-tight tabular-nums text-ink">
+                {formatPrice(total)}
+              </span>
             </Card>
-          </div>
+          </>
         )}
 
-        <Link to="/catalogo" className="mt-6 block">
-          <Button size="lg" className="w-full">
-            Seguir comprando
-          </Button>
+        <Link
+          to="/catalogo"
+          className="mt-2 inline-flex h-14 w-full items-center justify-center rounded-full bg-brand-dark px-7 text-base font-bold text-white shadow-float transition hover:bg-brand-deep active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-dark"
+        >
+          Seguir comprando
         </Link>
       </div>
     </main>

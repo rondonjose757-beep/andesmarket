@@ -1,32 +1,30 @@
 import { Link } from 'react-router-dom'
+import { categoryLook } from '../lib/tones'
+import ProductImage from './ProductImage'
 
-// Chips de categoría (referencia: fila de accesos rápidos de Mercado Libre)
-// pero con la foto de un producto real de esa categoría en vez de un ícono,
-// y el nombre en letra pequeña debajo. Sin título de sección.
+// Departamentos: cuadro con la esquina superior derecha redondeada y un
+// producto real que sobresale por arriba.
 export default function CategoryChips({ categories, products }) {
-  const chips = categories
-    .map((category) => {
-      const sample = products.find((p) => p.category?.id === category.id && p.image_url)
-      return sample ? { id: category.id, name: category.name, image: sample.image_url } : null
-    })
-    .filter(Boolean)
-
-  if (chips.length === 0) return null
-
+  if (!categories.length) return null
   return (
-    <div className="scrollbar-hide -mx-4 flex gap-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-      {chips.map((chip) => (
+    <nav
+      aria-label="Departamentos"
+      className="scrollbar-hide -mx-4 flex gap-2.5 overflow-x-auto px-4 pb-2 pt-6 sm:mx-0 sm:gap-4 sm:px-0"
+    >
+      {categories.map((category) => (
         <Link
-          key={chip.id}
-          to={`/catalogo?categoria=${chip.id}`}
-          className="flex w-16 shrink-0 flex-col items-center gap-1.5 text-center"
+          key={category.id}
+          to={`/catalogo?categoria=${category.id}`}
+          className={`tone-${categoryLook(category.name).tone} group flex w-[74px] shrink-0 flex-col items-center gap-2 rounded-2xl text-center focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-dark sm:w-[88px]`}
         >
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white p-2 shadow-sm ring-1 ring-ink/5 transition-transform active:scale-95">
-            <img src={chip.image} alt="" className="h-full w-full object-contain" />
-          </div>
-          <span className="line-clamp-2 text-xs font-semibold leading-tight text-ink/70">{chip.name}</span>
+          <span className="relative block aspect-square w-full rounded-[18px] rounded-tr-[34px] bg-(--tone-shelf) transition-transform duration-300 ease-spring group-active:scale-95">
+            <span className="absolute inset-x-2 -top-4 bottom-2 transition-transform duration-500 ease-spring group-hover:-translate-y-1 group-hover:rotate-6">
+              <ProductImage src={products.find((p) => p.category?.id === category.id && p.image_url)?.image_url} />
+            </span>
+          </span>
+          <span className="line-clamp-2 text-xs font-bold leading-tight text-ink">{category.name}</span>
         </Link>
       ))}
-    </div>
+    </nav>
   )
 }

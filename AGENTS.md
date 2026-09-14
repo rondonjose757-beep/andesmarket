@@ -17,10 +17,11 @@ Toda la UI, textos, rutas y mensajes de commit están en **español**.
 
 - React 19 + Vite 8 (JavaScript/JSX, sin TypeScript)
 - Tailwind CSS v4 (plugin `@tailwindcss/vite`, tokens en `src/index.css`)
+- Google Fonts: Plus Jakarta Sans (texto) y Bricolage Grotesque (`font-display`: marca, títulos y precios)
 - react-router-dom v7 (`BrowserRouter`)
 - Supabase: Postgres + RLS + Auth anónima + Realtime (`@supabase/supabase-js`)
 - `vite-plugin-pwa` (instalable, service worker con auto-update)
-- Lint: `oxlint`. No hay tests automatizados todavía.
+- Lint: `oxlint`. Pruebas de navegador: `@playwright/test` en `tests/e2e/`.
 
 ## Cómo está conectado todo
 
@@ -62,6 +63,7 @@ npm run dev       # servidor local (Vite). La PWA también se activa en dev
 npm run build     # build de producción a dist/
 npm run preview   # sirve dist/ localmente
 npm run lint      # oxlint
+npm run test:e2e  # pruebas de navegador con datos aislados (primero: npx playwright install chromium)
 ```
 
 ## Estructura de `src/`
@@ -70,10 +72,10 @@ npm run lint      # oxlint
 main.jsx                 Monta <App> dentro de BrowserRouter
 App.jsx                  Providers (Auth → Toast → Cart) + rutas
 index.css                Tokens de marca (@theme) y utilidades globales
-layouts/AppLayout.jsx    Header + <Outlet> + FloatingCart (en /catalogo no usa Header)
+layouts/AppLayout.jsx    Header verde (degradado de fondo; buscador y carrito fijos) + <Outlet> + FloatingCart (en /catalogo no usa Header)
 pages/
-  HomePage.jsx           "/"            Carrusel promo, chips de categoría, Destacados y secciones horizontales por categoría
-  CatalogPage.jsx        "/catalogo"    Búsqueda + filtro por categoría (acepta ?categoria=<id>&q=<texto>)
+  HomePage.jsx           "/"            Promociones, departamentos, ofertas reales y góndolas por departamento con compra directa
+  CatalogPage.jsx        "/catalogo"    Búsqueda + categorías/subcategorías (URL: categoria, subcategoria, q, ofertas=1)
   CartPage.jsx           "/carrito"     Carrito, elegir retiro/delivery, confirmar pedido
   OrdersPage.jsx         "/mis-pedidos" Historial de pedidos del cliente
   ProfilePage.jsx        "/perfil"      Ver/editar nombre, teléfono, dirección
@@ -81,7 +83,8 @@ pages/
 components/              Piezas de UI de la tienda (ProductCard, CompactProductCard,
                          CategorySection, CategoryChips, CatalogHeader, SearchBar,
                          CartButton, FloatingCart, PromoCarousel, PromoBanner,
-                         ProductDetailModal, CheckoutModal, ProfileForm, Header, InfoBanner)
+                         ProductDetailModal, ProductImage, CatalogState, CheckoutModal, ProfileForm, Header, InfoBanner,
+                         CatalogHero, ProductFan, AndesPattern)
 shared/components/       Primitivas genéricas: ui.jsx (Button, Card, Badge, Field…), Modal, Toast
 state/
   AuthProvider.jsx       Sesión anónima de Supabase + perfil `customers` (useAuth)
@@ -92,20 +95,26 @@ lib/
   checkout.js            submitOrder(): inserta orders + order_items
   orderStatus.js         Estados de pedido y sus etiquetas
   format.js              Formato de precios y fechas
+  tones.js               Tono visual y frase de cada departamento (categoryLook, productTone)
 pwa/PwaInstall.jsx       Registra el service worker e inyecta meta tags iOS
 assets/                  Imágenes importadas desde el código
 ```
 
-Otros archivos: `vite.config.js` (plugins + manifest PWA, `theme_color` #52c979),
-`index.html` (fuente Plus Jakarta Sans, theme-color), `public/icons/` (íconos PWA),
+Otros archivos: `vite.config.js` (plugins + manifest PWA, `theme_color` #3a9a5c),
+`index.html` (fuentes, theme-color #3a9a5c = inicio del degradado verde, `viewport-fit=cover`), `public/icons/` (íconos PWA),
 `docs/superpowers/specs/` (specs de diseño de funcionalidades).
 
 ## Base de datos (Supabase)
 
-Definida en `supabase/schema.sql` (se pega en el SQL Editor; no hay migraciones).
+Definida en `supabase/schema.sql` (instalación inicial en SQL Editor). Los cambios
+incrementales revisados se guardan en `supabase/updates/`; no se usa un historial
+de migraciones de la CLI. No volver a ejecutar el esquema inicial sobre la base existente.
 
 - `categories` (name, sort_order)
-- `products` (category_id, name, description, price, image_url, stock,
+- `subcategories` (category_id, name, sort_order): cada una pertenece a una categoría.
+  Lectura pública con RLS; edición solo desde Table Editor. La FK compuesta
+  garantiza que el producto y su subcategoría tengan la misma categoría.
+- `products` (category_id, subcategory_id opcional, name, description, price, image_url, stock,
   discount_type `'porcentaje'|'monto'`, discount_value, active)
 - `customers` (auth_user_id → auth.users, name, phone **único**, address, profile_completed)
 - `orders` (customer_id, order_type `'retiro'|'delivery'`, address,
@@ -125,7 +134,10 @@ y ajusta las políticas RLS. Nunca desactives RLS para "arreglar" un error de pe
 1. Al abrir la app, `AuthProvider` recupera la sesión o llama a
    `signInAnonymously()` (debe estar activado en Supabase → Auth → Providers).
    Luego busca el `customers` de ese usuario.
-2. `useCatalog` trae productos activos; Home y Catálogo los muestran.
+2. `useCatalog` trae productos activos con categoría y subcategoría; respeta
+   `sort_order`. Home y Catálogo comparten las fichas verticales: + agrega una
+   unidad y −/cantidad/+ modifica el carrito; imagen y nombre abren el detalle.
+   El catálogo mantiene los filtros en la URL al recargar y navegar atrás.
 3. Agregar al carrito guarda en `CartProvider` (localStorage), no en la DB.
 4. En `/carrito` se elige retiro o delivery. Si el cliente no tiene perfil,
    `CheckoutModal` pide nombre y teléfono (`saveProfile`).
@@ -137,9 +149,15 @@ y ajusta las políticas RLS. Nunca desactives RLS para "arreglar" un error de pe
 
 ## Convenciones
 
-- **Colores**: usar solo los tokens de `src/index.css` (`brand`, `brand-dark`,
-  `brand-light`, `accent`, `cream`, `ink`, `muted`…) vía clases Tailwind
-  (`bg-brand`, `text-ink`). No hardcodear hex en componentes.
+- **Colores**: usar solo los tokens de `src/index.css` (`brand`, `brand-strong`, `brand-dark`,
+  `brand-deep`, `brand-light`, `accent`, `cream`, `ink`, `muted`…) vía clases Tailwind
+  (`bg-brand`, `text-ink`). No hardcodear hex en componentes. El texto blanco pequeño
+  va sobre `brand-dark` o más oscuro: el menta `brand` no da contraste suficiente.
+- **Góndolas**: cada departamento tiene un tono (`.tone-*` en `index.css`, elegido con
+  `categoryLook()`/`productTone()` de `lib/tones.js`); dentro se usa `bg-(--tone-shelf)`,
+  `bg-(--tone-media)` y `text-(--tone-deep)`. Forma de marca: esquina superior derecha muy
+  redondeada con el producto sobresaliendo. Las fotos son PNG transparentes y
+  `ProductImage` les añade sombra; no ponerlas sobre fondos blancos recuadrados.
 - Diseño mobile-first (es una PWA pensada para celular).
 - Componentes funcionales, un componente por archivo, `export default`.
   Hooks/contextos con export nombrado (`useAuth`, `useCart`).
@@ -152,4 +170,11 @@ y ajusta las políticas RLS. Nunca desactives RLS para "arreglar" un error de pe
 - Logo real en `Header.jsx` e íconos definitivos en `public/icons/`.
 - No hay panel de administración, pagos en línea, variantes de producto ni
   control de stock al confirmar pedidos.
-- No hay tests automatizados.
+- Ocho pruebas de navegador cubren catálogo, compra rápida, subcategorías, filtros,
+  detalle accesible, errores, carrito y tamaños móviles. `playwright.config.js`
+  usa Supabase ficticio y bloquea escrituras: no se crean pedidos reales.
+- El 14-09-2026 se aplicó `supabase/updates/2026-09-14-subcategorias.sql`: 22
+  subcategorías y 94 productos clasificados. Para nuevos productos, elegir una
+  subcategoría de su misma categoría. Para cambiar la categoría, limpiar primero
+  subcategory_id o actualizar ambas columnas juntas. Para borrar una subcategoría,
+  desasignar primero sus productos; las FK impiden dejar asociaciones inválidas.

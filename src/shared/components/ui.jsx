@@ -1,14 +1,14 @@
 const buttonVariants = {
-  primary: 'bg-brand text-white hover:bg-brand-dark active:bg-brand-dark shadow-sm shadow-brand/20',
-  secondary: 'bg-white text-ink border border-ink/15 hover:border-ink/30 hover:bg-cream-dim',
+  primary: 'bg-brand-dark text-white shadow-float hover:bg-brand-deep active:bg-brand-deep',
+  secondary: 'bg-white text-ink ring-1 ring-ink/10 hover:bg-cream hover:ring-ink/20',
   ghost: 'bg-transparent text-ink/70 hover:bg-ink/5 hover:text-ink',
-  danger: 'bg-white text-red-600 border border-red-600/30 hover:bg-red-600/5',
+  danger: 'bg-white text-danger ring-1 ring-danger/30 hover:bg-danger-light',
 }
 
 const buttonSizes = {
   sm: 'h-10 px-4 text-sm gap-1.5',
-  md: 'h-12 px-5 text-base gap-2',
-  lg: 'h-14 px-7 text-lg gap-2.5',
+  md: 'h-12 px-5 text-[15px] gap-2',
+  lg: 'h-14 px-7 text-base gap-2.5',
 }
 
 export function Button({
@@ -25,7 +25,7 @@ export function Button({
     <button
       type={type}
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center rounded-xl font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-50 ${buttonVariants[variant]} ${buttonSizes[size]} ${className}`}
+      className={`inline-flex items-center justify-center rounded-full font-bold tracking-[-0.01em] transition duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-dark focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none ${buttonVariants[variant]} ${buttonSizes[size]} ${className}`}
       {...props}
     >
       {loading && (
@@ -44,7 +44,7 @@ export function IconButton({ label, className = '', children, ...props }) {
     <button
       type="button"
       aria-label={label}
-      className={`inline-flex h-11 w-11 items-center justify-center rounded-lg text-ink/70 transition-colors duration-150 hover:bg-ink/5 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${className}`}
+      className={`inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 transition duration-150 hover:bg-ink/5 hover:text-ink active:scale-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-dark ${className}`}
       {...props}
     >
       {children}
@@ -55,14 +55,14 @@ export function IconButton({ label, className = '', children, ...props }) {
 export function Field({ label, htmlFor, error, hint, required, children }) {
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={htmlFor} className="text-base font-bold text-ink">
+      <label htmlFor={htmlFor} className="text-sm font-bold text-ink">
         {label}
-        {required && <span className="text-red-600"> *</span>}
+        {required && <span className="text-danger"> *</span>}
       </label>
       {children}
-      {hint && !error && <p className="text-sm text-ink/60">{hint}</p>}
+      {hint && !error && <p className="text-[13px] text-muted">{hint}</p>}
       {error && (
-        <p className="text-sm font-semibold text-red-600" aria-live="polite">
+        <p className="text-sm font-semibold text-danger" aria-live="polite">
           {error}
         </p>
       )}
@@ -71,7 +71,7 @@ export function Field({ label, htmlFor, error, hint, required, children }) {
 }
 
 const controlClasses =
-  'w-full rounded-lg border-2 border-ink/15 bg-white px-4 py-3.5 text-base text-ink placeholder:text-ink/40 transition-shadow duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:bg-cream-dim disabled:text-ink/40'
+  'w-full rounded-2xl border-0 bg-white px-4 py-3.5 text-base text-ink ring-1 ring-ink/10 placeholder:text-muted/70 transition-shadow duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-dark disabled:cursor-not-allowed disabled:bg-cream-dim disabled:text-ink/40'
 
 export function Input({ className = '', ...props }) {
   return <input className={`${controlClasses} ${className}`} {...props} />
@@ -90,24 +90,25 @@ export function Select({ className = '', children, ...props }) {
 }
 
 const badgeVariants = {
-  neutral: 'bg-ink/8 text-ink/70',
-  brand: 'bg-brand/10 text-brand-dark',
-  accent: 'bg-accent/10 text-accent',
-  info: 'bg-blue-500/10 text-blue-700',
-  danger: 'bg-red-500/10 text-red-700',
-  muted: 'bg-ink/8 text-ink/50',
+  neutral: 'bg-ink/8 text-ink/75',
+  brand: 'bg-brand-light text-brand-dark',
+  accent: 'bg-accent-light text-accent-dark',
+  info: 'tone-cielo bg-(--tone-shelf) text-(--tone-deep)',
+  danger: 'bg-danger-light text-danger',
+  muted: 'bg-ink/8 text-muted',
 }
 
 export function Badge({ variant = 'neutral', children, className = '' }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${badgeVariants[variant]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${badgeVariants[variant]} ${className}`}
     >
+      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />
       {children}
     </span>
   )
 }
 
 export function Card({ className = '', children }) {
-  return <div className={`rounded-2xl border border-ink/8 bg-white shadow-sm shadow-ink/5 ${className}`}>{children}</div>
+  return <div className={`rounded-[24px] bg-white shadow-card ${className}`}>{children}</div>
 }

@@ -6,8 +6,10 @@ import ProfileForm from './ProfileForm'
 export default function CheckoutModal({ open, onClose, onReady }) {
   return (
     <Modal open={open} onClose={onClose} title="Antes de confirmar…" maxWidth="max-w-lg">
-      <div className="flex flex-col gap-4">
-        <p className="text-base text-ink/70">Necesitamos tu nombre y teléfono para procesar tu pedido y avisarte cuando esté listo.</p>
+      <div className="flex flex-col gap-5">
+        <p className="text-[15px] leading-relaxed text-muted">
+          Necesitamos tu nombre y teléfono para procesar tu pedido y avisarte cuando esté listo.
+        </p>
         <ProfileForm onSuccess={onReady} submitLabel="Continuar" />
       </div>
     </Modal>
