@@ -9,6 +9,7 @@ import CategorySection from '../components/CategorySection'
 import ProductDetailModal from '../components/ProductDetailModal'
 import CatalogState from '../components/CatalogState'
 import AndesPattern from '../components/AndesPattern'
+import { ORDER_HELP_WHATSAPP_URL } from '../lib/contact'
 
 function ArrowIcon() {
   return (
@@ -73,24 +74,27 @@ export default function HomePage() {
           )
         })}
       </div>
-      <Link
-        to="/mis-pedidos"
+      <a
+        href={ORDER_HELP_WHATSAPP_URL}
+        target="_blank"
+        rel="noreferrer"
+        aria-label="Contactar un asesor por WhatsApp"
         className="group relative flex items-center gap-4 overflow-hidden rounded-[28px] rounded-tr-[64px] bg-brand-deep p-5 text-white shadow-float focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-dark"
       >
         <AndesPattern className="text-white/10" />
         <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
           <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true">
-            <path d="M6 3h12v18l-3-2-3 2-3-2-3 2Z M9 8h6 M9 12h6" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M20 11.5a8 8 0 0 1-11.8 7L4 20l1.5-4.1A8 8 0 1 1 20 11.5Zm-10.7-4c.3 3 2.2 5 5.2 5.7" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </span>
         <span className="relative min-w-0 flex-1">
-          <span className="block font-display text-lg font-extrabold leading-tight">Tus compras, a mano</span>
-          <span className="mt-0.5 block text-[13px] text-white/80">Consulta cómo va tu pedido.</span>
+          <span className="block font-display text-lg font-extrabold leading-tight">¿Necesitas ayuda para comprar?</span>
+          <span className="mt-0.5 block text-[13px] text-white/80">Un asesor puede tomar tu pedido por WhatsApp.</span>
         </span>
         <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-brand-deep transition-transform group-hover:translate-x-1">
           <ArrowIcon />
         </span>
-      </Link>
+      </a>
       <div aria-hidden="true" className="relative -mx-4 -mb-10 h-40 overflow-hidden sm:mx-0">
         <AndesPattern className="text-brand/40 [mask-image:linear-gradient(to_top,black,transparent)]" />
         <p className="absolute inset-x-0 bottom-6 text-center font-display text-[52px] font-extrabold leading-none tracking-[-0.05em] text-brand-dark/15">

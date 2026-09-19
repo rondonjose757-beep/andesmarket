@@ -3,16 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import AndesPattern from './AndesPattern'
 import BrandLogo from './BrandLogo'
 import CartButton from './CartButton'
+import ContactMenu from './ContactMenu'
 import SearchBar from './SearchBar'
-
-function ProfileIcon() {
-  return (
-    <svg className="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <circle cx="12" cy="8" r="3.6" />
-      <path d="M4.5 20.5a7.5 7.5 0 0 1 15 0" strokeLinecap="round" />
-    </svg>
-  )
-}
 
 // Cabecera verde con curvas de cordillera. El degradado es un fondo absoluto
 // que se funde con la página: en Inicio las promociones quedan encima. El
@@ -54,13 +46,7 @@ export default function Header({ hero = false }) {
           >
             <BrandLogo />
           </Link>
-          <Link
-            to="/perfil"
-            aria-label="Mi perfil"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-deep/35 text-white ring-1 ring-white/25 transition-transform active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-          >
-            <ProfileIcon />
-          </Link>
+          <ContactMenu />
         </header>
 
         {hero && (
@@ -84,6 +70,7 @@ export default function Header({ hero = false }) {
                 <BrandLogo />
               </span>
             </Link>
+            <ContactMenu />
             <CartButton />
           </div>
         </div>

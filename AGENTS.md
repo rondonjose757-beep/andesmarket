@@ -77,18 +77,18 @@ pages/
   HomePage.jsx           "/"            Promociones, departamentos, ofertas reales y góndolas por departamento con compra directa
   CatalogPage.jsx        "/catalogo"    Categorías/subcategorías; recibe búsquedas desde Inicio (URL: categoria, subcategoria, q, ofertas=1)
   CartPage.jsx           "/carrito"     Carrito, elegir retiro/delivery, confirmar pedido
-  OrdersPage.jsx         "/mis-pedidos" Historial de pedidos del cliente
-  ProfilePage.jsx        "/perfil"      Ver/editar nombre, teléfono, dirección
+  OrdersPage.jsx                        Historial conservado sin ruta pública por el momento
+  ProfilePage.jsx                       Perfil conservado sin ruta pública por el momento
   PrivacyPage.jsx        "/privacidad"  Política de privacidad y datos de contacto
   ConfirmationPage.jsx   "/pedido/:orderId" (fuera del layout) Detalle + estado en vivo por Realtime
 components/              Piezas de UI de la tienda (BrandLogo, ProductCard, CompactProductCard,
                          CategorySection, CategoryChips, CatalogHeader, SearchBar,
                          CartButton, FloatingCart, PromoCarousel, PromoBanner,
-                         ProductDetailModal, ProductImage, CatalogState, CheckoutModal, ProfileForm, Header, Footer, InfoBanner,
+  ProductDetailModal, ProductImage, CatalogState, CheckoutModal, ProfileForm, ContactMenu, Header, Footer, InfoBanner,
                          CatalogHero, ProductFan, AndesPattern)
 shared/components/       Primitivas genéricas: ui.jsx (Button, Card, Badge, Field…), Modal, Toast
 state/
-  AuthProvider.jsx       Sesión anónima de Supabase + perfil `customers` (useAuth)
+  AuthProvider.jsx       Sesión anónima técnica de Supabase + datos internos `customers` (useAuth)
   CartProvider.jsx       Carrito en localStorage "andesmarket.cart.v1" (useCart)
 hooks/useCatalog.js      Carga productos activos con su categoría
 lib/
@@ -140,13 +140,18 @@ y ajusta las políticas RLS. Nunca desactives RLS para "arreglar" un error de pe
    unidad y −/cantidad/+ modifica el carrito; imagen y nombre abren el detalle.
    El catálogo mantiene los filtros en la URL al recargar y navegar atrás.
 3. Agregar al carrito guarda en `CartProvider` (localStorage), no en la DB.
-4. En `/carrito` se elige retiro o delivery. Si el cliente no tiene perfil,
-   `CheckoutModal` pide nombre y teléfono (`saveProfile`).
+4. En `/carrito` se elige retiro o delivery. Si aún no hay datos del cliente,
+   `CheckoutModal` pide nombre y teléfono para procesar el pedido (`saveProfile` internamente).
 5. `submitOrder()` inserta el pedido y sus ítems, vacía el carrito y navega a
    `/pedido/:id`.
 6. `ConfirmationPage` escucha `UPDATE` en `orders` por Realtime y muestra el
    estado cuando el admin lo cambia. Requiere que la tabla `orders` esté en la
    publicación `supabase_realtime` (Database → Replication); `schema.sql` no lo hace.
+
+No hay interfaz pública de perfil ni historial de pedidos por el momento. La sesión
+anónima permanece como detalle técnico necesario para aplicar RLS; el usuario no
+inicia sesión ni administra una cuenta. La cabecera ofrece contacto por WhatsApp,
+teléfono e Instagram mediante `ContactMenu`.
 
 ## Convenciones
 
@@ -174,8 +179,8 @@ y ajusta las políticas RLS. Nunca desactives RLS para "arreglar" un error de pe
   Siguen pendientes los íconos definitivos en `public/icons/`.
 - No hay panel de administración, pagos en línea, variantes de producto ni
   control de stock al confirmar pedidos.
-- Catorce pruebas de navegador cubren catálogo, compra rápida, subcategorías, filtros,
-  cabeceras móviles, detalle accesible, errores, carrito y tamaños móviles. `playwright.config.js`
+- Quince pruebas de navegador cubren catálogo, compra rápida, subcategorías, filtros,
+  cabeceras móviles, contacto accesible, detalle, errores, carrito y tamaños móviles. `playwright.config.js`
   usa Supabase ficticio y bloquea escrituras: no se crean pedidos reales.
 - El 14-09-2026 se aplicó `supabase/updates/2026-09-14-subcategorias.sql`: 22
   subcategorías y 94 productos clasificados. Para nuevos productos, elegir una

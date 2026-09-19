@@ -60,7 +60,7 @@ export default function ProfileForm({ onSuccess, submitLabel = 'Continuar' }) {
       </Field>
 
       <Button type="submit" size="lg" className="mt-1 w-full" loading={submitting || isLoading}>
-        {isLoading ? 'Preparando tu sesión…' : submitting ? 'Guardando…' : submitLabel}
+        {isLoading ? 'Preparando el pedido…' : submitting ? 'Guardando…' : submitLabel}
       </Button>
     </form>
   )

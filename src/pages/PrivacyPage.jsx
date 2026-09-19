@@ -15,8 +15,8 @@ const sections = [
     title: 'Para qué usamos tus datos',
     content: (
       <>
-        Los usamos únicamente para crear y mantener tu perfil, procesar tus pedidos, coordinar el retiro o la entrega,
-        mostrarte el estado y el historial de tus compras, y conservar tu carrito entre visitas.
+        Los usamos únicamente para procesar tus pedidos, coordinar el retiro o la entrega, avisarte sobre su estado y
+        conservar tu carrito entre visitas.
       </>
     ),
   },
@@ -24,7 +24,7 @@ const sections = [
     title: 'Servicios que hacen funcionar la tienda',
     content: (
       <>
-        AndesMarket usa Supabase para la autenticación anónima y el almacenamiento seguro de perfiles y pedidos, y
+        AndesMarket usa Supabase para la sesión técnica anónima y el almacenamiento seguro de datos y pedidos, y
         Vercel para alojar y servir la aplicación. Estos proveedores pueden procesar la información necesaria para
         prestar sus servicios técnicos.
       </>

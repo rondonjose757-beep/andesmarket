@@ -8,7 +8,7 @@ export default function CheckoutModal({ open, onClose, onReady }) {
     <Modal open={open} onClose={onClose} title="Antes de confirmar…" maxWidth="max-w-lg">
       <div className="flex flex-col gap-5">
         <p className="text-[15px] leading-relaxed text-muted">
-          Necesitamos tu nombre y teléfono para procesar tu pedido y avisarte cuando esté listo.
+          Comparte los datos de este pedido para que podamos procesarlo y avisarte cuando esté listo.
         </p>
         <ProfileForm onSuccess={onReady} submitLabel="Continuar" />
       </div>

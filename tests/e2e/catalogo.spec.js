@@ -124,7 +124,7 @@ test('el buscador solo aparece en Inicio', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('search')).toHaveCount(1)
 
-  for (const path of ['/catalogo', '/carrito', '/mis-pedidos', '/perfil']) {
+  for (const path of ['/catalogo', '/carrito', '/privacidad']) {
     await page.goto(path)
     await expect(page.getByRole('search')).toHaveCount(0)
   }
@@ -153,6 +153,45 @@ test('la cabecera principal permanece accesible al hacer scroll', async ({ page 
   await page.goto('/catalogo')
   await page.evaluate(() => window.scrollTo(0, 500))
   await expect.poll(() => linkEstaEnPantalla('Volver al inicio')).toBe(true)
+})
+
+test('el menú reemplaza el perfil por contacto directo y accesible', async ({ page }) => {
+  await page.goto('/')
+
+  await expect(page.getByRole('link', { name: 'Mi perfil', exact: true })).toHaveCount(0)
+  await expect(page.getByText('Tus compras, a mano', { exact: true })).toHaveCount(0)
+
+  const trigger = page.getByRole('button', { name: 'Abrir menú', exact: true }).first()
+  await trigger.click()
+
+  const dialog = page.getByRole('dialog', { name: 'Ayuda y contacto' })
+  await expect(dialog).toBeVisible()
+  await expect(page.locator('body')).toHaveCSS('overflow', 'hidden')
+  await expect(dialog.getByText('Tu minimarket cercano', { exact: true })).toBeVisible()
+  await expect(dialog.getByRole('link', { name: 'Hablar por WhatsApp', exact: true })).toHaveAttribute(
+    'href',
+    /^https:\/\/wa\.me\/584122636533\?text=/,
+  )
+  await expect(dialog.getByRole('link', { name: 'Llamar al negocio', exact: true })).toHaveAttribute(
+    'href',
+    'tel:+584122636533',
+  )
+  await expect(dialog.getByRole('link', { name: 'Ver Instagram', exact: true })).toHaveAttribute(
+    'href',
+    'https://www.instagram.com/andesmarket.app/',
+  )
+
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await expect(trigger).toBeFocused()
+
+  await trigger.click()
+  await page.mouse.click(5, 5)
+  await expect(dialog).toHaveCount(0)
+
+  const help = page.getByRole('link', { name: 'Contactar un asesor por WhatsApp', exact: true })
+  await expect(help).toBeVisible()
+  await expect(help).toHaveAttribute('href', /^https:\/\/wa\.me\/584122636533\?text=/)
 })
 
 test('la cabecera del catálogo es fija y no depende del scroll', async ({ page }) => {
