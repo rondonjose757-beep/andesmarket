@@ -83,6 +83,14 @@
 
 @layer base {
   html {
+    --andes-safe-area-gradient: linear-gradient(
+      90deg,
+      var(--color-brand-strong) 0%,
+      var(--color-brand-strong) 38%,
+      color-mix(in srgb, var(--color-brand-strong) 82%, white) 100%
+    );
+    background-color: var(--color-brand-strong);
+    background-image: var(--andes-safe-area-gradient);
     color-scheme: light;
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -94,10 +102,16 @@
   }
 
   body {
-    background-color: var(--color-cream);
+    background-color: var(--color-brand-strong);
+    background-image: var(--andes-safe-area-gradient);
     color: var(--color-ink);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+  }
+
+  #root {
+    min-height: 100svh;
+    background-color: var(--color-cream);
   }
 
   ::selection {

@@ -55,8 +55,6 @@ export default function CatalogPage() {
   return (
     <div>
       <CatalogHeader
-        query={query}
-        onQueryChange={(value) => changeFilter('q', value, true)}
         categories={categories}
         activeCategoryId={categoryId}
         onSelectCategory={(id) => changeFilter('categoria', id)}

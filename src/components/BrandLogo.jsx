@@ -2,7 +2,7 @@ import logo from '../assets/andesmarket-logo.png'
 
 export default function BrandLogo() {
   return (
-    <span className="block overflow-hidden rounded-xl bg-cream px-2 py-1">
+    <span className="block overflow-hidden">
       {/* El encuadre oculta los márgenes transparentes sin modificar el original. */}
       <span className="block aspect-[9/2] overflow-hidden">
         <img
@@ -10,7 +10,7 @@ export default function BrandLogo() {
           alt="AndesMarket"
           width="2056"
           height="765"
-          className="h-full w-full object-cover object-[center_55%]"
+          className="h-full w-full object-cover object-[center_55%] drop-shadow-sm"
         />
       </span>
     </span>

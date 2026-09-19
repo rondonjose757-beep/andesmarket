@@ -75,7 +75,7 @@ index.css                Tokens de marca (@theme) y utilidades globales
 layouts/AppLayout.jsx    Header verde (degradado de fondo; buscador y carrito fijos) + <Outlet> + FloatingCart (en /catalogo no usa Header)
 pages/
   HomePage.jsx           "/"            Promociones, departamentos, ofertas reales y góndolas por departamento con compra directa
-  CatalogPage.jsx        "/catalogo"    Búsqueda + categorías/subcategorías (URL: categoria, subcategoria, q, ofertas=1)
+  CatalogPage.jsx        "/catalogo"    Categorías/subcategorías; recibe búsquedas desde Inicio (URL: categoria, subcategoria, q, ofertas=1)
   CartPage.jsx           "/carrito"     Carrito, elegir retiro/delivery, confirmar pedido
   OrdersPage.jsx         "/mis-pedidos" Historial de pedidos del cliente
   ProfilePage.jsx        "/perfil"      Ver/editar nombre, teléfono, dirección
@@ -173,8 +173,8 @@ y ajusta las políticas RLS. Nunca desactives RLS para "arreglar" un error de pe
   Siguen pendientes los íconos definitivos en `public/icons/`.
 - No hay panel de administración, pagos en línea, variantes de producto ni
   control de stock al confirmar pedidos.
-- Ocho pruebas de navegador cubren catálogo, compra rápida, subcategorías, filtros,
-  detalle accesible, errores, carrito y tamaños móviles. `playwright.config.js`
+- Trece pruebas de navegador cubren catálogo, compra rápida, subcategorías, filtros,
+  cabeceras móviles, detalle accesible, errores, carrito y tamaños móviles. `playwright.config.js`
   usa Supabase ficticio y bloquea escrituras: no se crean pedidos reales.
 - El 14-09-2026 se aplicó `supabase/updates/2026-09-14-subcategorias.sql`: 22
   subcategorías y 94 productos clasificados. Para nuevos productos, elegir una

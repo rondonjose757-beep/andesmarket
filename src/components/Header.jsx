@@ -20,13 +20,13 @@ function ProfileIcon() {
 export default function Header({ hero = false }) {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
-  const [stuck, setStuck] = useState(false)
-  const sentinelRef = useRef(null)
+  const [compactVisible, setCompactVisible] = useState(false)
+  const headerRef = useRef(null)
 
   useEffect(() => {
-    const node = sentinelRef.current
+    const node = headerRef.current
     if (!node) return undefined
-    const observer = new IntersectionObserver(([entry]) => setStuck(!entry.isIntersecting))
+    const observer = new IntersectionObserver(([entry]) => setCompactVisible(!entry.isIntersecting), { threshold: 0 })
     observer.observe(node)
     return () => observer.disconnect()
   }, [])
@@ -45,32 +45,49 @@ export default function Header({ hero = false }) {
         <AndesPattern className="text-white/25 [mask-image:linear-gradient(to_bottom,black_20%,transparent_70%)]" />
       </div>
 
-      <header className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 pb-1 pt-[max(14px,env(safe-area-inset-top))] sm:px-6">
-        <Link
-          to="/"
-          aria-label="AndesMarket, ir al inicio"
-          className="block min-h-11 w-64 min-w-0 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-        >
-          <BrandLogo />
-        </Link>
-        <Link
-          to="/perfil"
-          aria-label="Mi perfil"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-deep/35 text-white ring-1 ring-white/25 transition-transform active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-        >
-          <ProfileIcon />
-        </Link>
-      </header>
+      <div ref={headerRef}>
+        <header className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 pb-1 pt-[max(14px,env(safe-area-inset-top))] sm:px-6">
+          <Link
+            to="/"
+            aria-label="AndesMarket, ir al inicio"
+            className="block min-h-11 w-64 min-w-0 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+          >
+            <BrandLogo />
+          </Link>
+          <Link
+            to="/perfil"
+            aria-label="Mi perfil"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-deep/35 text-white ring-1 ring-white/25 transition-transform active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          >
+            <ProfileIcon />
+          </Link>
+        </header>
 
-      <div ref={sentinelRef} aria-hidden="true" className="h-2" />
-      <div
-        className={`sticky top-[env(safe-area-inset-top)] z-30 transition-[background-color,box-shadow] duration-300 before:absolute before:inset-x-0 before:bottom-full before:h-[env(safe-area-inset-top)] before:bg-inherit ${stuck ? 'bg-brand-strong shadow-float' : 'bg-transparent'}`}
-      >
-        <div className="mx-auto flex max-w-5xl items-center gap-2.5 px-4 py-2.5 sm:px-6">
-          <SearchBar query={query} onQueryChange={setQuery} onSubmit={search} placeholder="¿Qué quieres comprar hoy?" />
-          <CartButton />
-        </div>
+        {hero && (
+          <div className="mx-auto flex max-w-5xl items-center gap-2.5 px-4 py-2.5 sm:px-6">
+            <SearchBar query={query} onQueryChange={setQuery} onSubmit={search} placeholder="¿Qué quieres comprar hoy?" />
+            <CartButton />
+          </div>
+        )}
       </div>
+
+      {compactVisible && (
+        <div className="andes-bar fixed inset-x-0 top-0 z-30 overflow-hidden rounded-br-[32px] pt-[env(safe-area-inset-top)] text-white shadow-float">
+          <AndesPattern className="text-white/15 [mask-image:linear-gradient(to_bottom,black,transparent_70%)]" />
+          <div className="relative mx-auto flex h-[60px] max-w-5xl items-center gap-3 px-4 sm:px-6">
+            <Link
+              to="/"
+              aria-label="AndesMarket, ir al inicio"
+              className="block min-h-11 min-w-0 flex-1 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+            >
+              <span className="block max-w-44">
+                <BrandLogo />
+              </span>
+            </Link>
+            <CartButton />
+          </div>
+        </div>
+      )}
     </>
   )
 }

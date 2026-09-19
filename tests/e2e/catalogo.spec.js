@@ -85,6 +85,65 @@ test.beforeEach(async ({ context }) => {
 const categoryButtons = (page) => page.getByRole('navigation', { name: 'Categorías', exact: true })
 const subcategoryButtons = (page) => page.getByRole('navigation', { name: 'Subcategorías', exact: true })
 
+test('iOS recibe la barra de estado integrada desde el HTML inicial', async ({ request }) => {
+  const response = await request.get('/')
+  const html = await response.text()
+  expect(html).toContain('name="apple-mobile-web-app-status-bar-style" content="black-translucent"')
+})
+
+test('Safari recibe el lienzo verde y la app conserva el fondo crema', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(58, 154, 92)')
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(58, 154, 92)')
+  await expect(page.locator('html')).not.toHaveCSS('background-image', 'none')
+  await expect(page.locator('body')).not.toHaveCSS('background-image', 'none')
+  await expect(page.locator('#root')).toHaveCSS('background-color', 'rgb(243, 245, 241)')
+})
+
+test('el buscador solo aparece en Inicio', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('search')).toHaveCount(1)
+
+  for (const path of ['/catalogo', '/carrito', '/mis-pedidos', '/perfil']) {
+    await page.goto(path)
+    await expect(page.getByRole('search')).toHaveCount(0)
+  }
+})
+
+test('la cabecera compacta conserva la esquina inferior derecha redondeada', async ({ page }) => {
+  await page.goto('/')
+  await page.evaluate(() => window.scrollTo(0, 500))
+  const compacta = page.locator('div.fixed').filter({ has: page.getByRole('link', { name: 'AndesMarket, ir al inicio' }) })
+  await expect(compacta).toHaveCSS('border-bottom-right-radius', '32px')
+})
+
+test('la cabecera principal permanece accesible al hacer scroll', async ({ page }) => {
+  const linkEstaEnPantalla = (nombre) =>
+    page.getByRole('link', { name: nombre, exact: true }).evaluateAll((links) =>
+      links.some((link) => {
+        const rect = link.getBoundingClientRect()
+        return rect.bottom > 0 && rect.top < window.innerHeight
+      }),
+    )
+
+  await page.goto('/')
+  await page.evaluate(() => window.scrollTo(0, 500))
+  await expect.poll(() => linkEstaEnPantalla('AndesMarket, ir al inicio')).toBe(true)
+
+  await page.goto('/catalogo')
+  await page.evaluate(() => window.scrollTo(0, 500))
+  await expect.poll(() => linkEstaEnPantalla('Volver al inicio')).toBe(true)
+})
+
+test('la cabecera del catálogo es fija y no depende del scroll', async ({ page }) => {
+  await page.goto('/catalogo')
+  const header = page.locator('header')
+  await expect(header).toHaveCSS('position', 'fixed')
+  await expect.poll(async () => (await header.boundingBox())?.y).toBe(0)
+  await page.evaluate(() => window.scrollTo(0, 500))
+  await expect.poll(async () => (await header.boundingBox())?.y).toBe(0)
+})
+
 test('compra directa sincronizada, total, persistencia y agotados', async ({ page }) => {
   await page.goto('/catalogo')
   await page.getByRole('button', { name: 'Agregar Leche completa 1 L', exact: true }).click()
@@ -118,16 +177,24 @@ test('categoría, búsqueda sin tildes, ofertas y navegación atrás', async ({ 
   await expect(page.getByRole('heading', { name: 'Lácteos', exact: true })).toBeVisible()
   await page.goForward()
   await expect(page.getByRole('heading', { name: 'Todos los productos' })).toBeVisible()
+
+  await page.goto('/')
   await page.getByRole('searchbox').fill('cafe')
+  await page.getByRole('searchbox').press('Enter')
   await expect(page.getByRole('button', { name: 'Ver Café molido 250 g', exact: true })).toBeVisible()
   await expect(page.locator('article')).toHaveCount(1)
   await page.reload()
-  await expect(page.getByRole('searchbox')).toHaveValue('cafe')
+  await expect(page).toHaveURL(/q=cafe/)
   await expect(page.locator('article')).toHaveCount(1)
+
+  await page.goto('/')
   await page.getByRole('searchbox').fill('all')
-  await expect(page.getByRole('searchbox')).toHaveValue('all')
+  await page.getByRole('searchbox').press('Enter')
   await expect(page).toHaveURL(/q=all/)
+
+  await page.goto('/')
   await page.getByRole('searchbox').fill('inexistente')
+  await page.getByRole('searchbox').press('Enter')
   await page.getByRole('button', { name: 'Limpiar filtros' }).click()
   await expect(page.locator('article')).toHaveCount(6)
   await page.getByRole('button', { name: 'Ofertas', exact: true }).click()
@@ -233,13 +300,4 @@ test('carrito: delivery, retiro y formulario de identificación sin crear pedido
   await expect(page.getByRole('dialog')).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toHaveCount(0)
-})
-
-test('escribir inmediatamente después de cambiar categoría conserva ambos cambios', async ({ page }) => {
-  await page.goto('/catalogo?categoria=c1')
-  await categoryButtons(page).getByRole('button', { name: 'Todo', exact: true }).click()
-  await page.getByRole('searchbox').fill('cafe')
-  await expect(page.getByRole('button', { name: 'Ver Café molido 250 g', exact: true })).toBeVisible()
-  await expect(page).not.toHaveURL(/categoria=/)
-  await expect(page.getByRole('searchbox')).toHaveValue('cafe')
 })
