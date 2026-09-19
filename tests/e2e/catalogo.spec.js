@@ -100,6 +100,26 @@ test('Safari recibe el lienzo verde y la app conserva el fondo crema', async ({ 
   await expect(page.locator('#root')).toHaveCSS('background-color', 'rgb(243, 245, 241)')
 })
 
+test('la política de privacidad es pública y accesible desde el pie', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'andesmarket.cart.v1',
+      JSON.stringify([{ productId: 'p1', name: 'Leche completa 1 L', unitPrice: 3, quantity: 1 }]),
+    )
+  })
+  await page.goto('/')
+  await page.getByRole('link', { name: 'Política de privacidad', exact: true }).click()
+
+  await expect(page).toHaveURL('/privacidad')
+  await expect(page.getByRole('heading', { name: 'Política de privacidad', level: 1 })).toBeVisible()
+  await expect(page.getByRole('link', { name: '0412-2636533', exact: true })).toHaveAttribute('href', 'tel:+584122636533')
+  await expect(page.getByRole('link', { name: 'rondon.jose.757@gmail.com', exact: true })).toHaveAttribute(
+    'href',
+    'mailto:rondon.jose.757@gmail.com',
+  )
+  await expect(page.locator('div.fixed.inset-x-0.bottom-0')).toHaveCount(0)
+})
+
 test('el buscador solo aparece en Inicio', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('search')).toHaveCount(1)

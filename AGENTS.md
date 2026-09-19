@@ -79,11 +79,12 @@ pages/
   CartPage.jsx           "/carrito"     Carrito, elegir retiro/delivery, confirmar pedido
   OrdersPage.jsx         "/mis-pedidos" Historial de pedidos del cliente
   ProfilePage.jsx        "/perfil"      Ver/editar nombre, teléfono, dirección
+  PrivacyPage.jsx        "/privacidad"  Política de privacidad y datos de contacto
   ConfirmationPage.jsx   "/pedido/:orderId" (fuera del layout) Detalle + estado en vivo por Realtime
 components/              Piezas de UI de la tienda (BrandLogo, ProductCard, CompactProductCard,
                          CategorySection, CategoryChips, CatalogHeader, SearchBar,
                          CartButton, FloatingCart, PromoCarousel, PromoBanner,
-                         ProductDetailModal, ProductImage, CatalogState, CheckoutModal, ProfileForm, Header, InfoBanner,
+                         ProductDetailModal, ProductImage, CatalogState, CheckoutModal, ProfileForm, Header, Footer, InfoBanner,
                          CatalogHero, ProductFan, AndesPattern)
 shared/components/       Primitivas genéricas: ui.jsx (Button, Card, Badge, Field…), Modal, Toast
 state/
@@ -173,7 +174,7 @@ y ajusta las políticas RLS. Nunca desactives RLS para "arreglar" un error de pe
   Siguen pendientes los íconos definitivos en `public/icons/`.
 - No hay panel de administración, pagos en línea, variantes de producto ni
   control de stock al confirmar pedidos.
-- Trece pruebas de navegador cubren catálogo, compra rápida, subcategorías, filtros,
+- Catorce pruebas de navegador cubren catálogo, compra rápida, subcategorías, filtros,
   cabeceras móviles, detalle accesible, errores, carrito y tamaños móviles. `playwright.config.js`
   usa Supabase ficticio y bloquea escrituras: no se crean pedidos reales.
 - El 14-09-2026 se aplicó `supabase/updates/2026-09-14-subcategorias.sql`: 22

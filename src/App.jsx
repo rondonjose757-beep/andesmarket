@@ -10,6 +10,7 @@ import CartPage from './pages/CartPage'
 import OrdersPage from './pages/OrdersPage'
 import ProfilePage from './pages/ProfilePage'
 import ConfirmationPage from './pages/ConfirmationPage'
+import PrivacyPage from './pages/PrivacyPage'
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
               <Route path="carrito" element={<CartPage />} />
               <Route path="mis-pedidos" element={<OrdersPage />} />
               <Route path="perfil" element={<ProfilePage />} />
+              <Route path="privacidad" element={<PrivacyPage />} />
             </Route>
             <Route path="pedido/:orderId" element={<ConfirmationPage />} />
           </Routes>
