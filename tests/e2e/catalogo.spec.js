@@ -7,6 +7,11 @@ const image =
   )
 const dairy = { id: 'c1', name: 'Lácteos', sort_order: 2 }
 const pantry = { id: 'c2', name: 'Despensa', sort_order: 1 }
+const sectors = [
+  { id: 'sector-1', name: 'La Pedregosa', delivery_fee: 1, active: true, sort_order: 1 },
+  { id: 'sector-2', name: 'Belenzate', delivery_fee: 2, active: true, sort_order: 2 },
+  { id: 'sector-3', name: 'Campo Claro', delivery_fee: 3, active: true, sort_order: 3 },
+]
 const products = [
   {
     id: 'p1',
@@ -74,6 +79,9 @@ test.beforeEach(async ({ context }) => {
     if (url.pathname === '/rest/v1/products') {
       return route.fulfill({ json: products })
     }
+    if (url.pathname === '/rest/v1/delivery_sectors') {
+      return route.fulfill({ json: sectors })
+    }
     if (url.pathname.startsWith('/auth/')) {
       return route.fulfill({ status: 400, json: { msg: 'Autenticación desactivada en pruebas' } })
     }
@@ -84,6 +92,63 @@ test.beforeEach(async ({ context }) => {
 
 const categoryButtons = (page) => page.getByRole('navigation', { name: 'Categorías', exact: true })
 const subcategoryButtons = (page) => page.getByRole('navigation', { name: 'Subcategorías', exact: true })
+
+async function seedCart(page) {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'andesmarket.cart.v1',
+      JSON.stringify([
+        {
+          productId: 'p1',
+          productName: 'Leche completa 1 L',
+          productImage: null,
+          unitPrice: 2.4,
+          quantity: 1,
+        },
+      ]),
+    )
+  })
+}
+
+async function mockAuthenticatedCustomer(page) {
+  const expiresAt = Math.floor(Date.now() / 1000) + 3600
+  const accessToken = [
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+    Buffer.from(JSON.stringify({ sub: 'user-1', role: 'authenticated', exp: expiresAt })).toString('base64url'),
+    'firma-de-prueba',
+  ].join('.')
+
+  await page.route('**/auth/v1/signup', (route) =>
+    route.fulfill({
+      json: {
+        access_token: accessToken,
+        token_type: 'bearer',
+        expires_in: 3600,
+        expires_at: expiresAt,
+        refresh_token: 'refresh-de-prueba',
+        user: {
+          id: 'user-1',
+          aud: 'authenticated',
+          role: 'authenticated',
+          is_anonymous: true,
+          created_at: new Date().toISOString(),
+        },
+      },
+    }),
+  )
+  await page.route('**/rest/v1/customers?**', (route) =>
+    route.fulfill({
+      json: {
+        id: 'customer-1',
+        auth_user_id: 'user-1',
+        name: 'María Pérez',
+        phone: '04121234567',
+        address: null,
+        profile_completed: true,
+      },
+    }),
+  )
+}
 
 test('iOS recibe la barra de estado integrada desde el HTML inicial', async ({ request }) => {
   const response = await request.get('/')
@@ -368,16 +433,190 @@ test('errores recuperables, estados vacíos y categoría inválida', async ({ pa
   await expect(page.getByRole('status')).toContainText('No hay productos')
 })
 
-test('carrito: delivery, retiro y formulario de identificación sin crear pedido', async ({ page }) => {
-  await page.goto('/catalogo')
-  await page.getByRole('button', { name: 'Agregar Leche completa 1 L', exact: true }).click()
-  await page.getByRole('link', { name: 'Ver carrito, 1 producto, $2.40', exact: true }).click()
-  await page.getByRole('button', { name: 'Delivery', exact: true }).click()
-  await expect(page.getByRole('textbox', { name: 'Dirección de entrega' })).toBeVisible()
-  await page.getByRole('button', { name: 'Retiro en tienda' }).click()
-  await expect(page.getByRole('textbox', { name: 'Dirección de entrega' })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Confirmar pedido', exact: true }).click()
+test('carrito: delivery exclusivo, sectores, validaciones e identificación', async ({ page }) => {
+  await seedCart(page)
+  await page.goto('/carrito')
+
+  await expect(page.getByText('Retiro en tienda', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('combobox', { name: 'Sector de entrega' })).toBeVisible()
+  await expect(page.getByRole('option', { name: 'La Pedregosa · $1.00' })).toBeAttached()
+  await expect(page.getByRole('option', { name: 'Belenzate · $2.00' })).toBeAttached()
+  await expect(page.getByRole('option', { name: 'Campo Claro · $3.00' })).toBeAttached()
+
+  const confirm = page.getByRole('button', { name: 'Confirmar pedido', exact: true })
+  await expect(confirm).toBeDisabled()
+
+  const sector = page.getByRole('combobox', { name: 'Sector de entrega' })
+  await sector.focus()
+  await sector.blur()
+  await expect(page.getByText('Selecciona un sector de entrega.', { exact: true })).toBeVisible()
+
+  await sector.selectOption('sector-2')
+  await expect(page.getByText('Delivery estimado')).toBeVisible()
+  await expect(page.getByText('$2.00', { exact: true })).toBeVisible()
+  await expect(page.getByText('$4.40', { exact: true })).toBeVisible()
+
+  const address = page.getByRole('textbox', { name: 'Dirección de entrega' })
+  await address.focus()
+  await address.blur()
+  await expect(page.getByText('Escribe una dirección de entrega.', { exact: true })).toBeVisible()
+
+  const maps = page.getByRole('textbox', { name: 'Enlace de Google Maps' })
+  await maps.fill('https://ejemplo.com/ubicacion')
+  await expect(page.getByText('Pega un enlace HTTPS válido de Google Maps.', { exact: true })).toBeVisible()
+  await maps.fill('https://maps.app.goo.gl/ubicacion-prueba')
+  await address.fill('Av. Las Américas, edificio 4')
+  await expect(confirm).toBeEnabled()
+  await confirm.click()
   await expect(page.getByRole('dialog')).toBeVisible()
+  await expect(page.getByRole('dialog')).toContainText('pedido delivery')
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('cliente nuevo: guarda sus datos, crea el pedido, vacía el carrito y abre la confirmación', async ({ page }) => {
+  await seedCart(page)
+
+  const expiresAt = Math.floor(Date.now() / 1000) + 3600
+  const accessToken = [
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+    Buffer.from(JSON.stringify({ sub: 'user-new', role: 'authenticated', exp: expiresAt })).toString('base64url'),
+    'firma-de-prueba',
+  ].join('.')
+  const newCustomer = {
+    id: 'customer-new',
+    auth_user_id: 'user-new',
+    name: 'Ana Torres',
+    phone: '04125550123',
+    address: null,
+    profile_completed: true,
+  }
+
+  await page.route('**/auth/v1/signup', (route) =>
+    route.fulfill({
+      json: {
+        access_token: accessToken,
+        token_type: 'bearer',
+        expires_in: 3600,
+        expires_at: expiresAt,
+        refresh_token: 'refresh-cliente-nuevo',
+        user: {
+          id: 'user-new',
+          aud: 'authenticated',
+          role: 'authenticated',
+          is_anonymous: true,
+          created_at: new Date().toISOString(),
+        },
+      },
+    }),
+  )
+  await page.route('**/rest/v1/customers?**', (route) => {
+    if (route.request().method() === 'POST') return route.fulfill({ json: newCustomer })
+    return route.fulfill({ json: null })
+  })
+  await page.route('**/rest/v1/rpc/create_delivery_order', (route) => {
+    const { payload } = route.request().postDataJSON()
+    if (
+      payload.customer_id !== newCustomer.id ||
+      payload.name !== newCustomer.name ||
+      payload.phone !== newCustomer.phone
+    ) {
+      return route.fulfill({ status: 400, json: { message: 'Datos del cliente incompletos.' } })
+    }
+    return route.fulfill({
+      json: {
+        id: 'order-new',
+        order_number: 43,
+        subtotal: 2.4,
+        delivery_fee: 1,
+        total: 3.4,
+        status: 'nuevo',
+      },
+    })
+  })
+
+  await page.goto('/carrito')
+  await page.getByRole('combobox', { name: 'Sector de entrega' }).selectOption('sector-1')
+  await page.getByRole('textbox', { name: 'Dirección de entrega' }).fill('Calle 5, casa 8')
+  await page.getByRole('button', { name: 'Confirmar pedido', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Tu nombre' }).fill(newCustomer.name)
+  await page.getByRole('textbox', { name: 'Tu teléfono' }).fill(newCustomer.phone)
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click()
+
+  await expect(page).toHaveURL('/pedido/order-new')
+  await expect
+    .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('andesmarket.cart.v1') ?? '[]').length))
+    .toBe(0)
+})
+
+test('el carrito se conserva cuando la RPC rechaza el pedido', async ({ page }) => {
+  await seedCart(page)
+  await mockAuthenticatedCustomer(page)
+  await page.route('**/rest/v1/rpc/create_delivery_order', (route) =>
+    route.fulfill({ status: 400, json: { message: 'Uno o más productos no existen o no están activos.' } }),
+  )
+
+  const customerLoaded = page.waitForResponse((response) => response.url().includes('/rest/v1/customers?'))
+  await page.goto('/carrito')
+  await customerLoaded
+  await page.getByRole('combobox', { name: 'Sector de entrega' }).selectOption('sector-1')
+  await page.getByRole('textbox', { name: 'Dirección de entrega' }).fill('Calle principal, casa 12')
+  await page.getByRole('button', { name: 'Confirmar pedido', exact: true }).click()
+
+  await expect(page.getByRole('alert')).toContainText('Revisa los productos del carrito')
+  await expect(page.getByText('Leche completa 1 L', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Confirmar pedido', exact: true })).toBeEnabled()
+})
+
+test('la confirmación es un recibo estático con importes guardados y sin tracking', async ({ page }) => {
+  await page.route('**/rest/v1/orders?**', (route) =>
+    route.fulfill({
+      json: {
+        id: 'order-1',
+        order_number: 42,
+        customer_name: 'María Pérez',
+        customer_phone: '04121234567',
+        sector_name: 'La Pedregosa',
+        delivery_fee: 1,
+        subtotal: 2.4,
+        total: 3.4,
+        delivery_instructions: 'Portón azul',
+        google_maps_url: 'https://maps.app.goo.gl/ubicacion-prueba',
+        created_at: '2026-09-19T14:30:00Z',
+        status: 'nuevo',
+        address: 'Calle principal, casa 12',
+      },
+    }),
+  )
+  await page.route('**/rest/v1/order_items?**', (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: 'item-1',
+          product_name: 'Leche completa 1 L',
+          quantity: 1,
+          unit_price: 2.4,
+          line_total: 2.4,
+        },
+      ],
+    }),
+  )
+
+  await page.goto('/pedido/order-1')
+
+  await expect(page.getByRole('heading', { name: '¡Recibimos tu pedido!' })).toBeVisible()
+  await expect(page.getByText('AM-00042', { exact: true })).toBeVisible()
+  await expect(page.getByText('Sector: La Pedregosa', { exact: true })).toBeVisible()
+  await expect(page.getByText('Dirección: Calle principal, casa 12', { exact: true })).toBeVisible()
+  await expect(page.getByText('Indicaciones: Portón azul', { exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Abrir ubicación en Google Maps' })).toHaveAttribute(
+    'href',
+    'https://maps.app.goo.gl/ubicacion-prueba',
+  )
+  await expect(page.getByText('Subtotal', { exact: true })).toBeVisible()
+  await expect(page.getByText('Delivery', { exact: true })).toBeVisible()
+  await expect(page.getByText('$3.40', { exact: true })).toBeVisible()
+  await expect(page.getByText(/No realices ningún pago hasta recibir nuestra confirmación/)).toBeVisible()
+  await expect(page.getByText('Progreso del pedido')).toHaveCount(0)
+  await expect(page.getByText(/estado de tu pedido en vivo/)).toHaveCount(0)
 })

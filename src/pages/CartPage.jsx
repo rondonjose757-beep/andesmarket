@@ -4,21 +4,11 @@ import { useCart } from '../state/CartProvider'
 import { useAuth } from '../state/AuthProvider'
 import { submitOrder } from '../lib/checkout'
 import { formatPrice } from '../lib/format'
-import { ORDER_TYPE_LABEL } from '../lib/orderStatus'
-import { Button, Card, Field, Textarea } from '../shared/components/ui'
+import { Button, Card, Field, Input, Select, Textarea } from '../shared/components/ui'
 import { useToast } from '../shared/components/Toast'
+import { useDeliverySectors } from '../hooks/useDeliverySectors'
 import CheckoutModal from '../components/CheckoutModal'
 import ProductImage from '../components/ProductImage'
-
-function StoreIcon() {
-  return (
-    <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3.5 9.5 5 4h14l1.5 5.5" />
-      <path d="M3.5 9.5a2.8 2.8 0 0 0 5.6 0 2.8 2.8 0 0 0 5.8 0 2.8 2.8 0 0 0 5.6 0" />
-      <path d="M5 12v8h14v-8M10 20v-4.5h4V20" />
-    </svg>
-  )
-}
 
 function DeliveryIcon() {
   return (
@@ -30,6 +20,32 @@ function DeliveryIcon() {
       <path d="M9.5 17.5H15" />
     </svg>
   )
+}
+
+function isValidGoogleMapsUrl(value) {
+  if (!value.trim()) return true
+  try {
+    const url = new URL(value.trim())
+    if (url.protocol !== 'https:') return false
+    if (url.hostname === 'maps.app.goo.gl' || url.hostname === 'maps.google.com') return true
+    if (url.hostname === 'goo.gl') return url.pathname === '/maps' || url.pathname.startsWith('/maps/')
+    return (url.hostname === 'google.com' || url.hostname === 'www.google.com') &&
+      (url.pathname === '/maps' || url.pathname.startsWith('/maps/'))
+  } catch {
+    return false
+  }
+}
+
+function orderErrorMessage(error) {
+  const message = error?.message?.toLowerCase() ?? ''
+  if (message.includes('producto') || message.includes('product')) {
+    return 'Revisa los productos del carrito: uno o más ya no están disponibles.'
+  }
+  if (message.includes('sector')) return 'El sector seleccionado ya no está disponible. Elige otro.'
+  if (message.includes('sesión') || message.includes('session') || error?.code === '42501') {
+    return 'No pudimos validar tu sesión. Recarga la página e intenta de nuevo.'
+  }
+  return 'No se pudo confirmar tu pedido. Intenta de nuevo.'
 }
 
 function StepButton({ label, onClick, children }) {
@@ -50,44 +66,72 @@ function StepButton({ label, onClick, children }) {
 export default function CartPage() {
   const { items, itemCount, grandTotal, removeItem, updateQuantity, clearCart } = useCart()
   const { customer } = useAuth()
+  const { sectors, loading: sectorsLoading, error: sectorsError, retry: retrySectors } = useDeliverySectors()
   const notify = useToast()
   const navigate = useNavigate()
-  const [orderType, setOrderType] = useState('retiro')
+  const [sectorId, setSectorId] = useState('')
   const [address, setAddress] = useState('')
+  const [instructions, setInstructions] = useState('')
+  const [googleMapsUrl, setGoogleMapsUrl] = useState('')
+  const [sectorTouched, setSectorTouched] = useState(false)
+  const [addressTouched, setAddressTouched] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const [confirming, setConfirming] = useState(false)
   const [checkoutOpen, setCheckoutOpen] = useState(false)
 
+  const selectedSector = sectors.find((sector) => sector.id === sectorId)
+  const deliveryFee = selectedSector ? Number(selectedSector.delivery_fee) : 0
+  const estimatedTotal = grandTotal + deliveryFee
+  const mapsIsValid = isValidGoogleMapsUrl(googleMapsUrl)
+  const formIsValid = Boolean(selectedSector && address.trim() && mapsIsValid)
+
   const handleConfirm = useCallback(
-    async (customerId) => {
-      if (orderType === 'delivery' && !address.trim()) {
-        notify('Escribe una dirección de entrega.', 'error')
+    async (orderCustomer) => {
+      setSectorTouched(true)
+      setAddressTouched(true)
+      if (!formIsValid) {
         return
       }
+      setSubmitError('')
       setConfirming(true)
       try {
-        const order = await submitOrder({ customerId, orderType, address, items })
+        const order = await submitOrder({
+          customerId: orderCustomer.id,
+          name: orderCustomer.name,
+          phone: orderCustomer.phone,
+          sectorId,
+          address: address.trim(),
+          instructions: instructions.trim() || null,
+          googleMapsUrl: googleMapsUrl.trim() || null,
+          items,
+        })
         clearCart()
         navigate(`/pedido/${order.id}`)
-      } catch {
-        notify('No se pudo confirmar tu pedido. Intenta de nuevo.', 'error')
+      } catch (error) {
+        const message = orderErrorMessage(error)
+        setSubmitError(message)
+        notify(message, 'error')
       } finally {
         setConfirming(false)
       }
     },
-    [orderType, address, items, clearCart, navigate, notify],
+    [formIsValid, sectorId, address, instructions, googleMapsUrl, items, clearCart, navigate, notify],
   )
 
   function handleConfirmClick() {
+    setSectorTouched(true)
+    setAddressTouched(true)
+    if (!formIsValid) return
     if (!customer) {
       setCheckoutOpen(true)
       return
     }
-    handleConfirm(customer.id)
+    handleConfirm(customer)
   }
 
   function handleCheckoutReady(newCustomer) {
     setCheckoutOpen(false)
-    handleConfirm(newCustomer.id)
+    handleConfirm(newCustomer)
   }
 
   if (items.length === 0) {
@@ -170,62 +214,140 @@ export default function CartPage() {
       </Card>
 
       <Card className="p-4">
-        <h2 className="font-display text-xl font-extrabold tracking-[-0.02em] text-ink">Método de entrega</h2>
-        <div className="mt-3 grid grid-cols-2 gap-1.5 rounded-[22px] bg-cream p-1.5">
-          {[
-            ['retiro', 'Retiro en tienda', <StoreIcon key="retiro" />],
-            ['delivery', 'Delivery', <DeliveryIcon key="delivery" />],
-          ].map(([value, label, icon]) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={orderType === value}
-              onClick={() => setOrderType(value)}
-              className={`flex min-h-[88px] flex-col items-center justify-center gap-1.5 rounded-[18px] px-2 text-[15px] font-bold transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-dark ${orderType === value ? 'bg-white text-brand-dark shadow-card ring-2 ring-brand-dark' : 'text-muted hover:bg-white/60 hover:text-ink'}`}
-            >
-              {icon}
-              {label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-light text-brand-dark">
+            <DeliveryIcon />
+          </span>
+          <div>
+            <h2 className="font-display text-xl font-extrabold tracking-[-0.02em] text-ink">Entrega por delivery</h2>
+            <p className="text-sm text-muted">Selecciona dónde recibiremos tu pedido.</p>
+          </div>
         </div>
 
-        {orderType === 'delivery' && (
-          <div className="mt-4 animate-fade-up">
-            <Field label="Dirección de entrega" htmlFor="cart-address" required>
-              <Textarea
-                id="cart-address"
-                placeholder="Calle, casa/apto, punto de referencia…"
-                value={address}
-                onChange={(event) => setAddress(event.target.value)}
+        <div className="mt-5 flex flex-col gap-4">
+          {sectorsError ? (
+            <div role="alert" className="rounded-2xl bg-danger-light px-4 py-3 text-sm font-semibold text-danger">
+              <p>{sectorsError}</p>
+              <button type="button" onClick={retrySectors} className="mt-2 underline underline-offset-2">Reintentar</button>
+            </div>
+          ) : (
+            <Field
+              label="Sector de entrega"
+              htmlFor="cart-sector"
+              required
+              error={sectorTouched && !selectedSector ? 'Selecciona un sector de entrega.' : ''}
+              hint="Puedes escribir para buscar dentro de la lista en dispositivos compatibles."
+            >
+              <Select
+                id="cart-sector"
+                value={sectorId}
+                disabled={sectorsLoading}
+                onBlur={() => setSectorTouched(true)}
+                onChange={(event) => {
+                  setSectorId(event.target.value)
+                  setSubmitError('')
+                }}
                 className="bg-cream"
-              />
+              >
+                <option value="">{sectorsLoading ? 'Cargando sectores…' : 'Selecciona un sector'}</option>
+                {sectors.map((sector) => (
+                  <option key={sector.id} value={sector.id}>
+                    {sector.name} · {formatPrice(Number(sector.delivery_fee))}
+                  </option>
+                ))}
+              </Select>
             </Field>
-          </div>
-        )}
+          )}
+
+          <Field
+            label="Dirección de entrega"
+            htmlFor="cart-address"
+            required
+            error={addressTouched && !address.trim() ? 'Escribe una dirección de entrega.' : ''}
+          >
+            <Textarea
+              id="cart-address"
+              placeholder="Calle, casa/apto, punto de referencia…"
+              value={address}
+              onBlur={() => setAddressTouched(true)}
+              onChange={(event) => {
+                setAddress(event.target.value)
+                setSubmitError('')
+              }}
+              className="bg-cream"
+            />
+          </Field>
+
+          <Field label="Indicaciones" htmlFor="cart-instructions" hint="Opcional. Por ejemplo: portón azul o tocar el timbre.">
+            <Textarea
+              id="cart-instructions"
+              value={instructions}
+              onChange={(event) => setInstructions(event.target.value)}
+              className="bg-cream"
+            />
+          </Field>
+
+          <Field
+            label="Enlace de Google Maps"
+            htmlFor="cart-maps"
+            hint="Opcional. Comparte un enlace HTTPS de Google Maps."
+            error={!mapsIsValid ? 'Pega un enlace HTTPS válido de Google Maps.' : ''}
+          >
+            <Input
+              id="cart-maps"
+              type="url"
+              inputMode="url"
+              placeholder="https://maps.app.goo.gl/…"
+              value={googleMapsUrl}
+              onChange={(event) => {
+                setGoogleMapsUrl(event.target.value)
+                setSubmitError('')
+              }}
+              className="bg-cream"
+            />
+          </Field>
+        </div>
       </Card>
 
       <Card className="relative p-5">
         <div className="flex items-center justify-between text-sm text-muted">
-          <span>Entrega</span>
-          <span className="font-semibold text-ink">{ORDER_TYPE_LABEL[orderType]}</span>
+          <span>Subtotal estimado</span>
+          <span className="font-semibold tabular-nums text-ink">{formatPrice(grandTotal)}</span>
+        </div>
+        <div className="mt-2 flex items-center justify-between text-sm text-muted">
+          <span>Delivery estimado</span>
+          <span className="font-semibold tabular-nums text-ink">{selectedSector ? formatPrice(deliveryFee) : '—'}</span>
         </div>
         <div className="relative my-4 border-t-2 border-dashed border-ink/10">
           <span aria-hidden="true" className="absolute -left-8 -top-3 h-6 w-6 rounded-full bg-cream" />
           <span aria-hidden="true" className="absolute -right-8 -top-3 h-6 w-6 rounded-full bg-cream" />
         </div>
         <div className="flex items-end justify-between gap-3">
-          <span className="text-base font-bold text-ink">Total del pedido</span>
+          <span className="text-base font-bold text-ink">Total estimado</span>
           <span className="font-display text-[32px] font-extrabold leading-none tracking-tight tabular-nums text-ink">
-            {formatPrice(grandTotal)}
+            {formatPrice(estimatedTotal)}
           </span>
         </div>
+        <p className="mt-3 text-xs leading-relaxed text-muted">Los importes definitivos serán validados y calculados por AndesMarket al crear el pedido.</p>
       </Card>
+
+      {submitError && (
+        <p role="alert" className="rounded-[20px] bg-danger-light px-4 py-3 text-sm font-semibold text-danger">
+          {submitError}
+        </p>
+      )}
 
       <div
         className="sticky bottom-0 -mx-4 bg-linear-to-t from-cream via-cream/90 to-transparent px-4 pt-6"
         style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
       >
-        <Button size="lg" onClick={handleConfirmClick} loading={confirming} className="w-full">
+        <Button
+          size="lg"
+          onClick={handleConfirmClick}
+          loading={confirming}
+          disabled={!formIsValid || sectorsLoading || Boolean(sectorsError)}
+          className="w-full"
+        >
           {confirming ? 'Confirmando…' : 'Confirmar pedido'}
         </Button>
       </div>

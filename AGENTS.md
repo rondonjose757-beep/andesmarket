@@ -7,9 +7,10 @@ Si cambias algo que contradiga este archivo, actualízalo en el mismo commit.
 ## Qué es
 
 Tienda online (PWA) del minimarket **AndesMarket**, un solo local. El cliente
-navega el catálogo, arma un carrito y hace un pedido con **retiro en tienda** o
-**delivery**. No hay pagos en línea ni panel de administración: los productos y
-el estado de los pedidos se gestionan desde el Table Editor de Supabase.
+navega el catálogo, arma un carrito y hace un pedido exclusivamente por
+**delivery**. No hay pagos en línea ni panel de administración todavía: los
+productos y el estado de los pedidos se gestionan desde el Table Editor de
+Supabase mientras se construye el dashboard del MVP.
 
 Toda la UI, textos, rutas y mensajes de commit están en **español**.
 
@@ -19,7 +20,7 @@ Toda la UI, textos, rutas y mensajes de commit están en **español**.
 - Tailwind CSS v4 (plugin `@tailwindcss/vite`, tokens en `src/index.css`)
 - Google Fonts: Plus Jakarta Sans (texto) y Bricolage Grotesque (`font-display`: marca, títulos y precios)
 - react-router-dom v7 (`BrowserRouter`)
-- Supabase: Postgres + RLS + Auth anónima + Realtime (`@supabase/supabase-js`)
+- Supabase: Postgres + RLS + Auth anónima (`@supabase/supabase-js`)
 - `vite-plugin-pwa` (instalable, service worker con auto-update)
 - Lint: `oxlint`. Pruebas de navegador: `@playwright/test` en `tests/e2e/`.
 
@@ -77,11 +78,11 @@ layouts/AppLayout.jsx    Header verde (degradado de fondo; buscador y carrito fi
 pages/
   HomePage.jsx           "/"            Promociones, departamentos, ofertas reales y góndolas por departamento con compra directa
   CatalogPage.jsx        "/catalogo"    Categorías/subcategorías; recibe búsquedas desde Inicio (URL: categoria, subcategoria, q, ofertas=1)
-  CartPage.jsx           "/carrito"     Carrito, elegir retiro/delivery, confirmar pedido
+  CartPage.jsx           "/carrito"     Carrito, datos de delivery y confirmación del pedido
   OrdersPage.jsx                        Historial conservado sin ruta pública por el momento
   ProfilePage.jsx                       Perfil conservado sin ruta pública por el momento
   PrivacyPage.jsx        "/privacidad"  Política de privacidad y datos de contacto
-  ConfirmationPage.jsx   "/pedido/:orderId" (fuera del layout) Detalle + estado en vivo por Realtime
+  ConfirmationPage.jsx   "/pedido/:orderId" (fuera del layout) Recibo estático del pedido
 components/              Piezas de UI de la tienda (BrandLogo, ProductCard, CompactProductCard,
                          CategorySection, CategoryChips, CatalogHeader, SearchBar,
                          CartButton, FloatingCart, PromoCarousel, PromoBanner,
@@ -91,10 +92,12 @@ shared/components/       Primitivas genéricas: ui.jsx (Button, Card, Badge, Fie
 state/
   AuthProvider.jsx       Sesión anónima técnica de Supabase + datos internos `customers` (useAuth)
   CartProvider.jsx       Carrito en localStorage "andesmarket.cart.v1" (useCart)
-hooks/useCatalog.js      Carga productos activos con su categoría
+hooks/
+  useCatalog.js          Carga productos activos con su categoría
+  useDeliverySectors.js  Carga sectores activos y sus tarifas
 lib/
   supabaseClient.js      Cliente único de Supabase
-  checkout.js            submitOrder(): inserta orders + order_items
+  checkout.js            submitOrder(): llama la RPC atómica create_delivery_order
   orderStatus.js         Estados de pedido y sus etiquetas
   format.js              Formato de precios y fechas
   tones.js               Tono visual y frase de cada departamento (categoryLook, productTone)
@@ -109,9 +112,11 @@ Otros archivos: `vite.config.js` (plugins + manifest PWA, `theme_color` #3a9a5c)
 
 ## Base de datos (Supabase)
 
-Definida en `supabase/schema.sql` (instalación inicial en SQL Editor). Los cambios
-incrementales revisados se guardan en `supabase/updates/`; no se usa un historial
-de migraciones de la CLI. No volver a ejecutar el esquema inicial sobre la base existente.
+La base histórica está definida en `supabase/schema.sql` (solo instalación
+inicial). Los cambios incrementales revisados se guardan en `supabase/updates/`;
+no se usa un historial de migraciones de la CLI. No volver a ejecutar el esquema
+inicial sobre la base existente. Para reproducir el estado vigente, se instala el
+esquema inicial y luego se aplican los archivos de `updates/` en orden.
 
 - `categories` (name, sort_order)
 - `subcategories` (category_id, name, sort_order): cada una pertenece a una categoría.
@@ -120,17 +125,21 @@ de migraciones de la CLI. No volver a ejecutar el esquema inicial sobre la base 
 - `products` (category_id, subcategory_id opcional, name, description, price, image_url, stock,
   discount_type `'porcentaje'|'monto'`, discount_value, active)
 - `customers` (auth_user_id → auth.users, name, phone **único**, address, profile_completed)
-- `orders` (customer_id, order_type `'retiro'|'delivery'`, address,
-  status `'confirmado'|'preparando'|'listo'|'entregado'|'cancelado'`)
-- `order_items` (order_id, product_id, product_name, quantity, unit_price) —
-  nombre y precio se copian al momento del pedido
+- `delivery_sectors` (name, delivery_fee, active, sort_order)
+- `orders`: conserva `retiro` y `listo` solo por compatibilidad histórica; los
+  pedidos nuevos son delivery, comienzan en `nuevo` y guardan número visible,
+  snapshots del cliente/sector, importes, pago y campos operativos.
+- `order_items` (order_id, product_id, product_name, quantity, unit_price,
+  line_total) — nombre y precio se copian al momento del pedido.
 
-RLS: catálogo de lectura pública (solo `active = true`); cada sesión solo ve y crea
-su propio `customers`, `orders` y `order_items`. Nadie puede actualizar pedidos
-desde la app: el admin cambia `status` desde el dashboard (bypassa RLS).
+RLS: catálogo y sectores activos de lectura pública; cada sesión solo ve su
+perfil, pedidos e ítems. Los inserts directos de pedidos e ítems están revocados:
+`create_delivery_order(jsonb)` valida propiedad, productos y sector, recalcula
+precios y crea el pedido completo en una transacción.
 
-Si cambias el esquema: actualiza `supabase/schema.sql`, aplica el SQL en Supabase
-y ajusta las políticas RLS. Nunca desactives RLS para "arreglar" un error de permisos.
+Si cambias el esquema vigente: añade un SQL incremental en `supabase/updates/`,
+actualiza las pruebas de `supabase/tests/` y ajusta las políticas RLS. Nunca
+desactives RLS para "arreglar" un error de permisos.
 
 ## Flujo principal
 
@@ -142,13 +151,15 @@ y ajusta las políticas RLS. Nunca desactives RLS para "arreglar" un error de pe
    unidad y −/cantidad/+ modifica el carrito; imagen y nombre abren el detalle.
    El catálogo mantiene los filtros en la URL al recargar y navegar atrás.
 3. Agregar al carrito guarda en `CartProvider` (localStorage), no en la DB.
-4. En `/carrito` se elige retiro o delivery. Si aún no hay datos del cliente,
-   `CheckoutModal` pide nombre y teléfono para procesar el pedido (`saveProfile` internamente).
-5. `submitOrder()` inserta el pedido y sus ítems, vacía el carrito y navega a
-   `/pedido/:id`.
-6. `ConfirmationPage` escucha `UPDATE` en `orders` por Realtime y muestra el
-   estado cuando el admin lo cambia. Requiere que la tabla `orders` esté en la
-   publicación `supabase_realtime` (Database → Replication); `schema.sql` no lo hace.
+4. En `/carrito` se eligen sector y dirección; indicaciones y enlace de Google
+   Maps son opcionales. Si aún no hay datos del cliente, `CheckoutModal` pide
+   nombre y teléfono (`saveProfile` internamente).
+5. `submitOrder()` envía solo ids, cantidades y datos de entrega a
+   `create_delivery_order(jsonb)`. La RPC relee precios y tarifas, calcula los
+   importes y guarda pedido e ítems atómicamente.
+6. Tras el éxito se vacía el carrito y se navega a `/pedido/:id`, que muestra un
+   recibo estático con número `AM-xxxxx`. El estado operativo no se expone al
+   cliente y esta pantalla no usa Realtime.
 
 No hay interfaz pública de perfil ni historial de pedidos por el momento. La sesión
 anónima permanece como detalle técnico necesario para aplicar RLS; el usuario no
@@ -183,9 +194,11 @@ teléfono e Instagram mediante `ContactMenu`.
   Siguen pendientes los íconos definitivos en `public/icons/`.
 - No hay panel de administración, pagos en línea, variantes de producto ni
   control de stock al confirmar pedidos.
-- Quince pruebas de navegador y dos unitarias cubren catálogo, compra rápida, subcategorías, filtros,
-  cabeceras móviles, contacto accesible, detalle, errores, carrito y tamaños móviles. `playwright.config.js`
-  usa Supabase ficticio y bloquea escrituras: no se crean pedidos reales.
+- Veinte pruebas de navegador, dos unitarias y el arnés SQL de
+  `supabase/tests/` cubren catálogo, checkout delivery, creación atómica, RLS,
+  recibo y regresiones visuales. Playwright usa Supabase ficticio y no crea
+  pedidos reales; el arnés SQL usa PostgreSQL 17 desechable y nunca se conecta
+  al proyecto remoto.
 - El 14-09-2026 se aplicó `supabase/updates/2026-09-14-subcategorias.sql`: 22
   subcategorías y 94 productos clasificados. Para nuevos productos, elegir una
   subcategoría de su misma categoría. Para cambiar la categoría, limpiar primero

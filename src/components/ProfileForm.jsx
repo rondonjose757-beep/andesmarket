@@ -44,7 +44,7 @@ export default function ProfileForm({ onSuccess, submitLabel = 'Continuar' }) {
         />
       </Field>
 
-      <Field label="Tu teléfono" htmlFor="profile-phone" required hint="Para avisarte del estado de tu pedido">
+      <Field label="Tu teléfono" htmlFor="profile-phone" required hint="Para contactarte por WhatsApp y coordinar el pago">
         <Input
           id="profile-phone"
           name="phone"
@@ -60,7 +60,7 @@ export default function ProfileForm({ onSuccess, submitLabel = 'Continuar' }) {
       </Field>
 
       <Button type="submit" size="lg" className="mt-1 w-full" loading={submitting || isLoading}>
-        {isLoading ? 'Preparando el pedido…' : submitting ? 'Guardando…' : submitLabel}
+        {isLoading ? 'Preparando el pedido delivery…' : submitting ? 'Guardando…' : submitLabel}
       </Button>
     </form>
   )

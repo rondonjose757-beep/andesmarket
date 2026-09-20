@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
-import { formatPrice } from '../lib/format'
-import { STATUS_FLOW, STATUS_LABEL, STATUS_VARIANT, ORDER_TYPE_LABEL } from '../lib/orderStatus'
-import { Badge, Card } from '../shared/components/ui'
+import { formatDateTime, formatPrice } from '../lib/format'
+import { Card } from '../shared/components/ui'
 import AndesPattern from '../components/AndesPattern'
 
 export default function ConfirmationPage() {
@@ -17,15 +16,27 @@ export default function ConfirmationPage() {
     let cancelled = false
     async function load() {
       setLoading(true)
+      setError(null)
       const [orderResult, itemsResult] = await Promise.all([
-        supabase.from('orders').select('id, status, order_type, address, created_at').eq('id', orderId).single(),
-        supabase.from('order_items').select('id, product_name, quantity, unit_price').eq('order_id', orderId).order('created_at'),
+        supabase
+          .from('orders')
+          .select('id, order_number, customer_name, customer_phone, sector_name, delivery_fee, subtotal, total, delivery_instructions, google_maps_url, created_at, status, address')
+          .eq('id', orderId)
+          .single(),
+        supabase
+          .from('order_items')
+          .select('id, product_name, quantity, unit_price, line_total')
+          .eq('order_id', orderId)
+          .order('created_at'),
       ])
 
       if (cancelled) return
-      if (orderResult.error) setError(orderResult.error.message)
-      else setOrder(orderResult.data)
-      if (itemsResult.data) setItems(itemsResult.data)
+      if (orderResult.error || itemsResult.error) {
+        setError(orderResult.error?.message ?? itemsResult.error?.message)
+      } else {
+        setOrder(orderResult.data)
+        setItems(itemsResult.data ?? [])
+      }
       setLoading(false)
     }
     load()
@@ -33,22 +44,6 @@ export default function ConfirmationPage() {
       cancelled = true
     }
   }, [orderId])
-
-  useEffect(() => {
-    const channel = supabase
-      .channel(`order-${orderId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` }, (payload) => {
-        setOrder((current) => ({ ...current, ...payload.new }))
-      })
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [orderId])
-
-  const total = useMemo(() => items.reduce((sum, item) => sum + Number(item.unit_price) * item.quantity, 0), [items])
-  const step = order ? STATUS_FLOW.indexOf(order.status) : -1
 
   return (
     <main className="relative isolate min-h-svh overflow-x-clip bg-cream px-4 pb-10 pt-[max(24px,env(safe-area-inset-top))] sm:px-6">
@@ -68,10 +63,10 @@ export default function ConfirmationPage() {
             </svg>
           </span>
           <h1 className="relative mt-5 font-display text-[32px] font-extrabold leading-none tracking-[-0.035em]">
-            ¡Pedido confirmado!
+            ¡Recibimos tu pedido!
           </h1>
-          <p className="relative mx-auto mt-3 max-w-xs text-[15px] leading-snug text-white/85">
-            Aquí verás el estado de tu pedido en vivo, sin recargar.
+          <p className="relative mx-auto mt-3 max-w-sm text-[15px] leading-relaxed text-white/85">
+            ¡Recibimos tu pedido! En breve nuestro equipo te contactará por WhatsApp para coordinar el pago. No realices ningún pago hasta recibir nuestra confirmación.
           </p>
         </div>
 
@@ -87,33 +82,37 @@ export default function ConfirmationPage() {
         ) : (
           <>
             <Card className="animate-fade-up p-5 [animation-delay:80ms]">
-              <div className="flex items-center justify-between gap-3">
-                <Badge variant={STATUS_VARIANT[order.status] ?? 'neutral'}>{STATUS_LABEL[order.status] ?? 'En curso'}</Badge>
-                <span className="text-sm font-semibold text-muted">{ORDER_TYPE_LABEL[order.order_type] ?? order.order_type}</span>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-brand-dark">Número de pedido</p>
+                  <p className="mt-1 font-display text-2xl font-extrabold tracking-tight text-ink">
+                    AM-{String(order.order_number).padStart(5, '0')}
+                  </p>
+                </div>
+                <time dateTime={order.created_at} className="text-right text-sm font-semibold text-muted">
+                  {formatDateTime(order.created_at)}
+                </time>
               </div>
-              {step >= 0 && (
-                <ol aria-label="Progreso del pedido" className="mt-5 grid grid-cols-4 gap-1.5">
-                  {STATUS_FLOW.map((status, index) => (
-                    <li
-                      key={status}
-                      aria-current={index === step ? 'step' : undefined}
-                      className="flex flex-col gap-2"
-                    >
-                      <span
-                        className={`h-2 rounded-full transition-colors duration-500 ${index < step ? 'bg-brand-dark' : index === step ? 'animate-pulse bg-brand' : 'bg-cream-dim'}`}
-                      />
-                      <span className={`text-[11px] font-bold leading-tight ${index <= step ? 'text-ink' : 'text-muted'}`}>
-                        {STATUS_LABEL[status]}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-              {order.address && (
-                <p className="mt-5 rounded-2xl bg-cream px-4 py-3 text-sm leading-relaxed text-ink/85">
-                  <span className="font-bold text-ink">Entrega en:</span> {order.address}
-                </p>
-              )}
+
+              <div className="mt-5 rounded-2xl bg-cream px-4 py-4 text-sm leading-relaxed text-ink/85">
+                <p><span className="font-bold text-ink">Sector:</span> {order.sector_name}</p>
+                <p className="mt-1"><span className="font-bold text-ink">Dirección:</span> {order.address}</p>
+                {order.delivery_instructions && (
+                  <p className="mt-1"><span className="font-bold text-ink">Indicaciones:</span> {order.delivery_instructions}</p>
+                )}
+                {order.google_maps_url && (
+                  <a
+                    href={order.google_maps_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex font-bold text-brand-dark underline decoration-brand/40 underline-offset-4"
+                  >
+                    Abrir ubicación en Google Maps
+                  </a>
+                )}
+              </div>
+
+              <h2 className="mt-5 font-display text-lg font-extrabold text-ink">Productos</h2>
               <ul className="mt-4 divide-y divide-ink/5">
                 {items.map((item) => (
                   <li key={item.id} className="flex items-center gap-3 py-3 text-[15px]">
@@ -121,17 +120,28 @@ export default function ConfirmationPage() {
                       {item.quantity}×
                     </span>
                     <p className="min-w-0 flex-1 font-semibold text-ink">{item.product_name}</p>
-                    <span className="shrink-0 tabular-nums text-ink/75">{formatPrice(Number(item.unit_price) * item.quantity)}</span>
+                    <span className="shrink-0 tabular-nums text-ink/75">{formatPrice(Number(item.line_total))}</span>
                   </li>
                 ))}
               </ul>
             </Card>
 
-            <Card className="flex animate-fade-up items-end justify-between gap-3 p-5 [animation-delay:160ms]">
-              <span className="text-base font-bold text-ink">Total del pedido</span>
-              <span className="font-display text-[32px] font-extrabold leading-none tracking-tight tabular-nums text-ink">
-                {formatPrice(total)}
-              </span>
+            <Card className="animate-fade-up p-5 [animation-delay:160ms]">
+              <div className="flex items-center justify-between text-sm text-muted">
+                <span>Subtotal</span>
+                <span className="font-semibold tabular-nums text-ink">{formatPrice(Number(order.subtotal))}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-sm text-muted">
+                <span>Delivery</span>
+                <span className="font-semibold tabular-nums text-ink">{formatPrice(Number(order.delivery_fee))}</span>
+              </div>
+              <div className="my-4 border-t-2 border-dashed border-ink/10" />
+              <div className="flex items-end justify-between gap-3">
+                <span className="text-base font-bold text-ink">Total del pedido</span>
+                <span className="font-display text-[32px] font-extrabold leading-none tracking-tight tabular-nums text-ink">
+                  {formatPrice(Number(order.total))}
+                </span>
+              </div>
             </Card>
           </>
         )}

@@ -1,19 +1,19 @@
 # AndesMarket
 
-Tienda online del minimarket AndesMarket: catálogo, carrito y pedidos con
-retiro en tienda o delivery. Base adaptada de la app cliente de
-[Contenedores](../mall-contenedores), simplificada para un solo local (sin
-multi-restaurante, sin mapa de mesas).
+Tienda online del minimarket AndesMarket: catálogo, carrito y pedidos por
+delivery. La persona compra como invitada, selecciona un sector y recibe un
+recibo con número `AM-xxxxx`; Supabase calcula precios, tarifa y total de forma
+atómica.
 
-Stack: React 19 + Vite + Tailwind v4 + react-router + Supabase (Postgres +
-Auth anónima + Realtime). Pensado para desplegar en Vercel.
+Stack: React 19 + Vite + Tailwind v4 + react-router + Supabase (Postgres, RLS y
+Auth anónima). Pensado para desplegar en Vercel.
 
 ## 1. Crear el proyecto de Supabase
 
 1. Crea un proyecto nuevo en [supabase.com](https://supabase.com) (o reutiliza uno tuyo).
-2. Ve a **SQL Editor** y pega el contenido completo de `supabase/schema.sql`. Ejecútalo.
-   Esto crea las tablas (`categories`, `products`, `customers`, `orders`,
-   `order_items`), las políticas de seguridad (RLS) y 4 categorías de ejemplo.
+2. En una base nueva, ejecuta `supabase/schema.sql` y después los archivos de
+   `supabase/updates/` en orden. En una base existente, no repitas el esquema
+   inicial: aplica únicamente las actualizaciones que falten.
 3. En **Authentication → Providers**, activa **Anonymous sign-ins** (la app
    crea una sesión anónima por visitante para poder guardar su perfil y sus
    pedidos sin pedirle que se registre).
@@ -54,23 +54,34 @@ npm run dev
 `vercel.json` ya incluye el rewrite para que las rutas de React Router
 (`/pedido/:id`, etc.) funcionen al recargar la página directamente.
 
+## 4. Verificación
+
+```bash
+npm run lint
+npm run test:unit
+npm run test:e2e
+npm run build
+```
+
+Las migraciones y la RPC de pedidos tienen un arnés PostgreSQL 17 aislado. No
+usa las variables del proyecto ni se conecta a Supabase remoto:
+
+```bash
+docker pull postgres:17-alpine
+sh supabase/tests/run-mvp-pedidos.sh
+```
+
 ## Pendientes para tener marca propia
 
-- **Logo y colores**: `src/index.css` tiene una paleta placeholder (verde
-  `--color-brand` + naranja `--color-accent`). Cámbiala ahí cuando definas
-  la identidad de marca — todo el resto de componentes usa esos tokens, no
-  colores sueltos.
 - **Ícono de PWA**: agrega `public/icons/icon-192.png`,
   `public/icons/icon-512.png` y `public/icons/apple-touch-icon.png` (192×192,
   512×512 y 180×180 respectivamente) para que la app sea instalable con tu
   ícono real.
-- **Header**: `src/components/Header.jsx` usa texto "AndesMarket" — cámbialo
-  por un `<img>` con tu logo cuando lo tengas.
 
 ## Qué no incluye esta base (a propósito)
 
-Para mantenerlo simple al inicio, no hay: panel de administración (gestionas
-productos/pedidos desde el Table Editor de Supabase), variantes/adicionales
-por producto, pagos en línea, ni multi-sucursal. Se pueden agregar después
-siguiendo el mismo patrón que `app-restaurante` en Contenedores (una segunda
-app dentro del mismo proyecto, con su propio login).
+Para mantenerlo simple al inicio, todavía no hay panel de administración
+(productos y pedidos se gestionan desde el Table Editor de Supabase), pagos en
+línea, inventario automático, variantes por producto ni multi-sucursal. El
+dashboard privado está especificado en `ANDES_MARKET_ADMIN_SPEC.md` y se
+implementará dentro del mismo frontend.
