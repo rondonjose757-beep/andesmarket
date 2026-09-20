@@ -124,7 +124,9 @@ esquema inicial y luego se aplican los archivos de `updates/` en orden.
   garantiza que el producto y su subcategoría tengan la misma categoría.
 - `products` (category_id, subcategory_id opcional, name, description, price, image_url, stock,
   discount_type `'porcentaje'|'monto'`, discount_value, active)
-- `customers` (auth_user_id → auth.users, name, phone **único**, address, profile_completed)
+- `customers` (auth_user_id → auth.users **único**, name, phone no único, address,
+  profile_completed): cada sesión conserva un solo perfil, pero distintas sesiones
+  invitadas pueden usar el mismo teléfono de contacto.
 - `delivery_sectors` (name, delivery_fee, active, sort_order)
 - `orders`: conserva `retiro` y `listo` solo por compatibilidad histórica; los
   pedidos nuevos son delivery, comienzan en `nuevo` y guardan número visible,

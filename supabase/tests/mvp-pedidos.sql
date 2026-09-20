@@ -64,7 +64,8 @@ end $$;
 
 insert into auth.users (id) values
   ('11111111-1111-4111-8111-111111111111'),
-  ('22222222-2222-4222-8222-222222222222');
+  ('22222222-2222-4222-8222-222222222222'),
+  ('33333333-3333-4333-8333-333333333333');
 
 insert into public.customers (id, auth_user_id, name, phone, profile_completed) values
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', '11111111-1111-4111-8111-111111111111', 'Cliente Uno', '04120000001', true),
@@ -168,6 +169,52 @@ end $$;
 
 \echo 'Aplicando la migración de dirección o ubicación...'
 \ir ../updates/2026-09-20-checkout-ubicacion.sql
+
+\echo 'Aplicando la migración de teléfonos compartidos...'
+\ir ../updates/2026-09-20-mvp-clientes-telefono-no-unico.sql
+
+\echo 'Comprobando teléfonos compartidos y un perfil por sesión...'
+
+do $$
+begin
+  if exists (
+    select 1
+    from pg_catalog.pg_constraint
+    where conrelid = 'public.customers'::pg_catalog.regclass
+      and conname = 'customers_phone_key'
+  ) then
+    raise exception 'FALLO: customers_phone_key todavía impide reutilizar un teléfono.';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_catalog.pg_constraint
+    where conrelid = 'public.customers'::pg_catalog.regclass
+      and conname = 'customers_auth_user_id_key'
+      and contype = 'u'
+  ) then
+    raise exception 'FALLO: se perdió la unicidad de customers.auth_user_id.';
+  end if;
+
+  insert into public.customers (auth_user_id, name, phone, profile_completed)
+  values ('33333333-3333-4333-8333-333333333333', 'Cliente Tres', '04120000001', true);
+
+  if (
+    select pg_catalog.count(*)
+    from public.customers
+    where phone = '04120000001'
+  ) <> 2 then
+    raise exception 'FALLO: dos clientes distintos no pudieron compartir el mismo teléfono.';
+  end if;
+
+  begin
+    insert into public.customers (auth_user_id, name, phone, profile_completed)
+    values ('33333333-3333-4333-8333-333333333333', 'Perfil duplicado', '04120000999', true);
+    raise exception 'FALLO: un mismo auth_user_id pudo crear dos perfiles.';
+  exception
+    when unique_violation then null;
+  end;
+end $$;
 
 \echo 'Comprobando la regla dirección o Google Maps...'
 

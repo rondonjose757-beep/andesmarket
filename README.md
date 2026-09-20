@@ -11,6 +11,10 @@ importes. La persona puede escribir una dirección o capturar su ubicación con 
 botón que solicita permiso al navegador y genera internamente un enlace de Google
 Maps. Al menos una de esas dos formas de destino es obligatoria.
 
+Cada sesión invitada conserva su propio perfil. El teléfono es un dato de
+contacto y puede repetirse entre clientes distintos; nunca se reutiliza ni se
+fusiona automáticamente un perfil por coincidencia de número.
+
 Stack: React 19 + Vite + Tailwind v4 + react-router + Supabase (Postgres, RLS y
 Auth anónima). Pensado para desplegar en Vercel.
 

@@ -67,7 +67,7 @@ export function AuthProvider({ children }) {
 
       if (error) {
         if (error.code === '23505') {
-          throw new Error('Ese número de teléfono ya está asociado a otro cliente. Usa otro número.')
+          throw new Error('Ya existe un perfil para esta sesión. Recarga la página e intenta de nuevo.')
         }
         throw new Error('No se pudieron guardar los datos del pedido. Intenta de nuevo.')
       }
@@ -89,7 +89,7 @@ export function AuthProvider({ children }) {
 
       if (error) {
         if (error.code === '23505') {
-          throw new Error('Ese número de teléfono ya está asociado a otro cliente. Usa otro número.')
+          throw new Error('Ya existe un perfil para esta sesión. Recarga la página e intenta de nuevo.')
         }
         throw new Error('No se pudieron actualizar tus datos. Intenta de nuevo.')
       }
