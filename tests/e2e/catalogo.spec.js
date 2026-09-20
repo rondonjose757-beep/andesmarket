@@ -104,6 +104,14 @@ test('el logo principal se descubre y prioriza desde el HTML inicial', async ({ 
   await expect(logo).toHaveAttribute('fetchpriority', 'high')
 })
 
+test('las tipografías no dependen de una hoja externa que bloquee el render', async ({ request }) => {
+  const response = await request.get('/')
+  const html = await response.text()
+
+  expect(html).not.toContain('fonts.googleapis.com')
+  expect(html).not.toContain('fonts.gstatic.com')
+})
+
 test('Safari recibe el lienzo verde y la app conserva el fondo crema', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(58, 154, 92)')
