@@ -63,6 +63,7 @@ npm run dev       # servidor local (Vite). La PWA también se activa en dev
 npm run build     # build de producción a dist/
 npm run preview   # sirve dist/ localmente
 npm run lint      # oxlint
+npm run test:unit # pruebas unitarias con node:test
 npm run test:e2e  # pruebas de navegador con datos aislados (primero: npx playwright install chromium)
 ```
 
@@ -97,6 +98,7 @@ lib/
   orderStatus.js         Estados de pedido y sus etiquetas
   format.js              Formato de precios y fechas
   tones.js               Tono visual y frase de cada departamento (categoryLook, productTone)
+  productImageUrl.js     Genera variantes 256/512 px mediante Supabase Image Transformations
 pwa/PwaInstall.jsx       Registra el service worker e inyecta meta tags iOS
 assets/                  Imágenes importadas desde el código
 ```
@@ -164,6 +166,8 @@ teléfono e Instagram mediante `ContactMenu`.
   `bg-(--tone-media)` y `text-(--tone-deep)`. Forma de marca: esquina superior derecha muy
   redondeada con el producto sobresaliendo. Las fotos son PNG transparentes y
   `ProductImage` les añade sombra; no ponerlas sobre fondos blancos recuadrados.
+  `ProductImage` solicita variantes WebP de 256/512 px mediante `/storage/v1/render/image/`
+  y vuelve al archivo original si la transformación falla.
 - Diseño mobile-first (es una PWA pensada para celular).
 - Componentes funcionales, un componente por archivo, `export default`.
   Hooks/contextos con export nombrado (`useAuth`, `useCart`).
@@ -179,7 +183,7 @@ teléfono e Instagram mediante `ContactMenu`.
   Siguen pendientes los íconos definitivos en `public/icons/`.
 - No hay panel de administración, pagos en línea, variantes de producto ni
   control de stock al confirmar pedidos.
-- Quince pruebas de navegador cubren catálogo, compra rápida, subcategorías, filtros,
+- Quince pruebas de navegador y dos unitarias cubren catálogo, compra rápida, subcategorías, filtros,
   cabeceras móviles, contacto accesible, detalle, errores, carrito y tamaños móviles. `playwright.config.js`
   usa Supabase ficticio y bloquea escrituras: no se crean pedidos reales.
 - El 14-09-2026 se aplicó `supabase/updates/2026-09-14-subcategorias.sql`: 22

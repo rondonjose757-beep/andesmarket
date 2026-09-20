@@ -1,23 +1,36 @@
 import { useState } from 'react'
+import { optimizedProductImageUrl } from '../lib/productImageUrl'
 
 // Foto de producto recortada (PNG transparente) con sombra suave, brillo de
 // carga y alternativa si falla.
 export default function ProductImage({ src, className = '', shadow = true }) {
   const [failedSrc, setFailedSrc] = useState(null)
+  const [optimizedFailedSrc, setOptimizedFailedSrc] = useState(null)
   const [loadedSrc, setLoadedSrc] = useState(null)
   const loaded = loadedSrc === src
+  const smallSrc = optimizedProductImageUrl(src, 256)
+  const largeSrc = optimizedProductImageUrl(src, 512)
+  const hasOptimizedVariant = smallSrc !== src
+  const optimizedFailed = optimizedFailedSrc === src
+  const displaySrc = optimizedFailed ? src : smallSrc
   return src && failedSrc !== src ? (
     <div className="relative h-full w-full">
       {!loaded && (
         <span aria-hidden="true" className="absolute inset-[18%] animate-pulse rounded-[38%] bg-white/35" />
       )}
       <img
-        src={src}
+        src={displaySrc}
+        srcSet={!optimizedFailed && hasOptimizedVariant ? `${smallSrc} 256w, ${largeSrc} 512w` : undefined}
+        sizes={!optimizedFailed && hasOptimizedVariant ? '(max-width: 640px) 50vw, 256px' : undefined}
         alt=""
         loading="lazy"
         decoding="async"
+        fetchPriority="low"
         onLoad={() => setLoadedSrc(src)}
-        onError={() => setFailedSrc(src)}
+        onError={() => {
+          if (hasOptimizedVariant && !optimizedFailed) setOptimizedFailedSrc(src)
+          else setFailedSrc(src)
+        }}
         className={`relative h-full w-full object-contain transition-opacity duration-300 ${shadow ? 'cutout' : ''} ${loaded ? 'opacity-100' : 'opacity-0'} ${className}`}
       />
     </div>
