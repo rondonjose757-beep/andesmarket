@@ -1,4 +1,4 @@
-import logo from '../assets/andesmarket-logo.png'
+import logo from '../assets/andesmarket-logo.webp'
 
 export default function BrandLogo() {
   return (
@@ -8,8 +8,10 @@ export default function BrandLogo() {
         <img
           src={logo}
           alt="AndesMarket"
-          width="2056"
-          height="765"
+          width="1028"
+          height="383"
+          loading="eager"
+          fetchPriority="high"
           className="h-full w-full object-cover object-[center_55%] drop-shadow-sm"
         />
       </span>

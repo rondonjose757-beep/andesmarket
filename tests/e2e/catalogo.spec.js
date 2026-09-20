@@ -91,6 +91,19 @@ test('iOS recibe la barra de estado integrada desde el HTML inicial', async ({ r
   expect(html).toContain('name="apple-mobile-web-app-status-bar-style" content="black-translucent"')
 })
 
+test('el logo principal se descubre y prioriza desde el HTML inicial', async ({ request, page }) => {
+  const response = await request.get('/')
+  const html = await response.text()
+
+  expect(html).toMatch(/<link\s+rel="preload"\s+as="image"/)
+  expect(html).toContain('andesmarket-logo.webp')
+
+  await page.goto('/')
+  const logo = page.getByRole('img', { name: 'AndesMarket' }).first()
+  await expect(logo).toHaveAttribute('src', /andesmarket-logo\.webp$/)
+  await expect(logo).toHaveAttribute('fetchpriority', 'high')
+})
+
 test('Safari recibe el lienzo verde y la app conserva el fondo crema', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('html')).toHaveCSS('background-color', 'rgb(58, 154, 92)')
