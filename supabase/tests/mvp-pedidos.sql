@@ -166,6 +166,99 @@ begin
   end if;
 end $$;
 
+\echo 'Aplicando la migración de dirección o ubicación...'
+\ir ../updates/2026-09-20-checkout-ubicacion.sql
+
+\echo 'Comprobando la regla dirección o Google Maps...'
+
+set role authenticated;
+select pg_catalog.set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
+
+do $$
+declare
+  v_before_orders bigint;
+begin
+  select pg_catalog.count(*) into v_before_orders from public.orders;
+
+  perform * from public.create_delivery_order(
+    pg_catalog.jsonb_build_object(
+      'customer_id', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+      'name', 'Cliente Uno',
+      'phone', '04120000001',
+      'sector_id', (select id::text from public.delivery_sectors where name = 'La Pedregosa'),
+      'address', null,
+      'google_maps_url', 'https://maps.google.com/?q=8.598325,-71.144694',
+      'items', pg_catalog.jsonb_build_array(
+        pg_catalog.jsonb_build_object(
+          'product_id', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2',
+          'quantity', 1
+        )
+      )
+    )
+  );
+
+  if not exists (
+    select 1 from public.orders
+    where address is null
+      and google_maps_url = 'https://maps.google.com/?q=8.598325,-71.144694'
+  ) then
+    raise exception 'FALLO: dirección null con Google Maps válido no creó el pedido.';
+  end if;
+
+  perform * from public.create_delivery_order(
+    pg_catalog.jsonb_build_object(
+      'customer_id', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+      'name', 'Cliente Uno',
+      'phone', '04120000001',
+      'sector_id', (select id::text from public.delivery_sectors where name = 'La Pedregosa'),
+      'address', 'Calle con dirección solamente',
+      'google_maps_url', null,
+      'items', pg_catalog.jsonb_build_array(
+        pg_catalog.jsonb_build_object(
+          'product_id', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2',
+          'quantity', 1
+        )
+      )
+    )
+  );
+
+  if not exists (
+    select 1 from public.orders
+    where address = 'Calle con dirección solamente'
+      and google_maps_url is null
+  ) then
+    raise exception 'FALLO: dirección válida con Google Maps null no creó el pedido.';
+  end if;
+
+  begin
+    perform * from public.create_delivery_order(
+      pg_catalog.jsonb_build_object(
+        'customer_id', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+        'name', 'Cliente Uno',
+        'phone', '04120000001',
+        'sector_id', (select id::text from public.delivery_sectors where name = 'La Pedregosa'),
+        'address', null,
+        'google_maps_url', null,
+        'items', pg_catalog.jsonb_build_array(
+          pg_catalog.jsonb_build_object(
+            'product_id', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2',
+            'quantity', 1
+          )
+        )
+      )
+    );
+    raise exception 'FALLO: la RPC aceptó un pedido sin dirección ni ubicación.';
+  exception
+    when sqlstate '22023' then null;
+  end;
+
+  if (select pg_catalog.count(*) from public.orders) <> v_before_orders + 2 then
+    raise exception 'FALLO: la regla de destino dejó una cantidad inesperada de pedidos.';
+  end if;
+end $$;
+
+reset role;
+
 \echo 'Comprobando creación válida, importes autoritativos y Google Maps...'
 
 set role authenticated;

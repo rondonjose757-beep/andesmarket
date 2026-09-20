@@ -5,6 +5,12 @@ delivery. La persona compra como invitada, selecciona un sector y recibe un
 recibo con número `AM-xxxxx`; Supabase calcula precios, tarifa y total de forma
 atómica.
 
+En el checkout, el selector muestra solo los nombres de los sectores; las
+tarifas no se exponen en sus opciones y aparecen únicamente en el resumen de
+importes. La persona puede escribir una dirección o capturar su ubicación con un
+botón que solicita permiso al navegador y genera internamente un enlace de Google
+Maps. Al menos una de esas dos formas de destino es obligatoria.
+
 Stack: React 19 + Vite + Tailwind v4 + react-router + Supabase (Postgres, RLS y
 Auth anónima). Pensado para desplegar en Vercel.
 

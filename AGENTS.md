@@ -151,8 +151,11 @@ desactives RLS para "arreglar" un error de permisos.
    unidad y −/cantidad/+ modifica el carrito; imagen y nombre abren el detalle.
    El catálogo mantiene los filtros en la URL al recargar y navegar atrás.
 3. Agregar al carrito guarda en `CartProvider` (localStorage), no en la DB.
-4. En `/carrito` se eligen sector y dirección; indicaciones y enlace de Google
-   Maps son opcionales. Si aún no hay datos del cliente, `CheckoutModal` pide
+4. En `/carrito` se elige el sector sin exponer su tarifa en el selector. La
+   ubicación se captura, tras una acción explícita, con la geolocalización del
+   navegador y se convierte internamente en un enlace de Google Maps. La dirección
+   escrita y las indicaciones son opcionales, pero se exige al menos dirección o
+   ubicación. Si aún no hay datos del cliente, `CheckoutModal` pide
    nombre y teléfono (`saveProfile` internamente).
 5. `submitOrder()` envía solo ids, cantidades y datos de entrega a
    `create_delivery_order(jsonb)`. La RPC relee precios y tarifas, calcula los
@@ -194,7 +197,7 @@ teléfono e Instagram mediante `ContactMenu`.
   Siguen pendientes los íconos definitivos en `public/icons/`.
 - No hay panel de administración, pagos en línea, variantes de producto ni
   control de stock al confirmar pedidos.
-- Veinte pruebas de navegador, dos unitarias y el arnés SQL de
+- Veintidós pruebas de navegador, dos unitarias y el arnés SQL de
   `supabase/tests/` cubren catálogo, checkout delivery, creación atómica, RLS,
   recibo y regresiones visuales. Playwright usa Supabase ficticio y no crea
   pedidos reales; el arnés SQL usa PostgreSQL 17 desechable y nunca se conecta

@@ -13,7 +13,7 @@ La implementación debe conservar React 19, Vite, Tailwind, Supabase y el diseñ
 ### Incluido
 
 - Compra como invitado mediante la sesión anónima técnica existente de Supabase Auth.
-- Checkout únicamente de delivery con nombre, teléfono, sector, dirección, indicaciones y enlace de Google Maps.
+- Checkout únicamente de delivery con nombre, teléfono, sector, dirección opcional, indicaciones y ubicación capturada como enlace de Google Maps. Se exige dirección o ubicación, al menos una.
 - Cálculo confiable de subtotal, delivery y total en Supabase.
 - Número visible de pedido con formato `AM-xxxxx`.
 - Dashboard responsive privado en la misma aplicación para Alejandro, Marianny y Jorge.
@@ -73,8 +73,8 @@ La aplicación actual es un frontend estático que habla directamente con Supaba
 1. La persona navega y arma el carrito como invitada. La sesión anónima sigue siendo un detalle técnico, no una cuenta que deba comprender o administrar.
 2. En `/carrito` revisa productos y cantidades. No existe selector de retiro.
 3. Informa nombre y teléfono. Si ya hay un perfil de la sesión, puede corregir esos datos para este pedido.
-4. Selecciona uno de los sectores activos. El buscador filtra por nombre, pero solo permite seleccionar una fila válida de `delivery_sectors`.
-5. Completa dirección obligatoria, indicaciones opcionales y un enlace opcional de Google Maps. El MVP almacena un enlace; no integra mapas ni solicita coordenadas automáticamente.
+4. Selecciona uno de los sectores activos. El selector muestra solo los nombres; no expone tarifas en sus opciones. La tarifa se muestra únicamente en el resumen del pedido.
+5. Puede escribir una dirección o pulsar el botón de ubicación. Solo tras ese gesto se llama a `navigator.geolocation.getCurrentPosition`; el navegador genera internamente un enlace HTTPS de Google Maps y no envía campos de coordenadas. Dirección e indicaciones son opcionales, pero dirección y ubicación no pueden faltar a la vez.
 6. La pantalla muestra una estimación de subtotal, delivery y total. Esta estimación mejora la experiencia, pero no es autoridad de precios.
 7. Al confirmar, el navegador envía a la RPC únicamente identidad del cliente, sector, dirección, indicaciones, enlace de Maps y pares `{product_id, quantity}`.
 8. Supabase valida propiedad del cliente, sector y productos; recalcula precios, descuentos, subtotal, delivery y total; crea pedido e ítems en una sola transacción.
@@ -91,6 +91,7 @@ La aplicación actual es un frontend estático que habla directamente con Supaba
 | Campo Claro | 3.00 | 3 |
 
 Las tarifas viven en `delivery_sectors`, no en JSX. Cada pedido guarda el id y snapshots del nombre y tarifa para que cambios futuros no alteren pedidos históricos. Solo sectores activos se aceptan al crear pedidos.
+El checkout público no incluye estas tarifas en las opciones del selector; las usa para el desglose estimado después de elegir un sector.
 
 ## 7. Estados del pedido
 
@@ -332,7 +333,7 @@ La tasa es informativa para la operación manual del MVP. No recalcula precios U
 - `order_number bigint` respaldado por secuencia, único, no editable; se presenta como `AM-` + mínimo cinco dígitos. No imponer un máximo artificial al superar `99999`.
 - `customer_name`, `customer_phone`: snapshots obligatorios.
 - `sector_id` FK restrictiva y `sector_name`, `delivery_fee`: snapshots obligatorios.
-- `delivery_address` obligatoria, `delivery_instructions`, `google_maps_url`.
+- `delivery_address` y `google_maps_url` opcionales individualmente, con una regla que exige al menos uno; `delivery_instructions` opcional.
 - `subtotal`, `total` con checks no negativos y `total = subtotal + delivery_fee`.
 - `status` con el nuevo dominio y default `nuevo`.
 - `payment_method` nullable hasta coordinación; check del dominio.
@@ -389,7 +390,7 @@ Todas las funciones `security definer` deben fijar `search_path`, calificar esqu
 
 Implementar una RPC transaccional, por ejemplo `create_delivery_order(payload jsonb)`, con este contrato:
 
-1. Rechaza sesión ausente, cliente ajeno, dirección vacía, sector inactivo, lista vacía, ids repetidos, cantidades no enteras/positivas o un tamaño de carrito excesivo.
+1. Rechaza sesión ausente, cliente ajeno, ausencia simultánea de dirección y Maps, sector inactivo, lista vacía, ids repetidos, cantidades no enteras/positivas o un tamaño de carrito excesivo.
 2. Extrae únicamente `product_id` y `quantity`; ignora/rechaza nombres, precios y totales enviados.
 3. Consulta y bloquea/lee consistentemente todos los productos solicitados. Exige `active = true` y calcula el precio efectivo a partir de `price`, `discount_type` y `discount_value`, con reglas explícitas de redondeo a dos decimales.
 4. Verifica que la cantidad de productos encontrados coincide con la solicitada. La falta de uno aborta todo.
@@ -434,7 +435,7 @@ Cada migración debe incluir consultas de prevalidación o abortar con mensaje c
 
 - `App.jsx`: rutas privadas lazy del dashboard y guarda administrativa.
 - `AuthProvider.jsx`: separar claramente sesión invitada y sesión administrativa; manejar errores de consultas y cierre/expiración.
-- `CartPage.jsx`: delivery exclusivo, selector de sector, dirección, indicaciones, Maps y desglose de importes.
+- `CartPage.jsx`: delivery exclusivo, selector de sector sin tarifas, dirección opcional, geolocalización bajo demanda, indicaciones y desglose de importes.
 - `CheckoutModal.jsx`/`ProfileForm.jsx`: nombre y teléfono dentro de un flujo coherente, sin convertirlo en registro obligatorio.
 - `checkout.js`: consumir la RPC atómica y enviar solo ids/cantidades y datos de delivery.
 - `ConfirmationPage.jsx`: recibo estático con `AM-xxxxx`; retirar Realtime y progreso interno.
@@ -463,8 +464,9 @@ No se crea un sistema visual paralelo; se usan tokens, tipografías, radios, esp
 ### Fase 2: checkout público
 
 - No aparece ni puede enviarse retiro en tienda.
-- Los tres sectores muestran exactamente $1, $2 y $3.
-- Nombre, teléfono, sector y dirección son obligatorios; indicaciones y Maps son opcionales y validados.
+- El selector muestra los tres nombres de sector sin precios; $1, $2 y $3 aparecen solo en el resumen según la selección.
+- Nombre, teléfono y sector son obligatorios. Debe existir dirección escrita o ubicación capturada; indicaciones es opcional.
+- La geolocalización se solicita solo al pulsar el botón, informa carga/error/éxito y permite cambiar o quitar la ubicación.
 - Se muestran subtotal, delivery y total antes de confirmar, y el recibo muestra los valores autoritativos.
 - La confirmación muestra `AM-xxxxx`, no muestra tracking y no abre suscripción Realtime.
 - Un error no vacía el carrito.

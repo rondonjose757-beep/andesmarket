@@ -10,8 +10,9 @@ Convertir la tienda pública existente en un flujo de compra exclusivamente a do
 - El pedido oficial se crea en Supabase, no en WhatsApp.
 - El precio, delivery y total se validan en una operación confiable de Supabase.
 - La operación es exclusivamente delivery; se elimina retiro en tienda.
-- Los sectores iniciales son La Pedregosa ($1), Belenzate ($2) y Campo Claro ($3).
-- El pin se guarda como enlace de Google Maps.
+- Los sectores iniciales son La Pedregosa ($1), Belenzate ($2) y Campo Claro ($3); el selector público muestra solo sus nombres y reserva las tarifas para el resumen.
+- La ubicación se captura bajo demanda mediante la geolocalización del navegador y se guarda como enlace de Google Maps, sin campos de coordenadas nuevos.
+- La dirección escrita y la ubicación son alternativas: el pedido exige al menos una.
 - El dashboard tendrá tres operadores: Alejandro, Marianny y Jorge.
 - El acceso será por nombre y PIN de cuatro dígitos para mantener el MVP simple. El PIN no se expondrá en el bundle ni se guardará en texto plano; el sistema limitará intentos y registrará qué operador actuó.
 - El número provisional de Andes Market y Speedy será 04122636533.
@@ -45,7 +46,7 @@ Convertir la tienda pública existente en un flujo de compra exclusivamente a do
 ### Fase 2: checkout público mínimo
 
 - [x] Añadir sector y tarifa calculada.
-- [x] Añadir dirección, indicaciones y enlace de Google Maps.
+- [x] Añadir dirección opcional, indicaciones y captura de ubicación; exigir dirección o Maps.
 - [x] Mostrar subtotal, delivery y total antes de confirmar.
 - [x] Mostrar confirmación con número `AM-xxxxx` y mensaje de coordinación por WhatsApp.
 - [x] Mantener el diseño y componentes existentes siempre que sea posible.

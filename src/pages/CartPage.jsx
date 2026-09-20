@@ -4,7 +4,7 @@ import { useCart } from '../state/CartProvider'
 import { useAuth } from '../state/AuthProvider'
 import { submitOrder } from '../lib/checkout'
 import { formatPrice } from '../lib/format'
-import { Button, Card, Field, Input, Select, Textarea } from '../shared/components/ui'
+import { Button, Card, Field, Select, Textarea } from '../shared/components/ui'
 import { useToast } from '../shared/components/Toast'
 import { useDeliverySectors } from '../hooks/useDeliverySectors'
 import CheckoutModal from '../components/CheckoutModal'
@@ -20,20 +20,6 @@ function DeliveryIcon() {
       <path d="M9.5 17.5H15" />
     </svg>
   )
-}
-
-function isValidGoogleMapsUrl(value) {
-  if (!value.trim()) return true
-  try {
-    const url = new URL(value.trim())
-    if (url.protocol !== 'https:') return false
-    if (url.hostname === 'maps.app.goo.gl' || url.hostname === 'maps.google.com') return true
-    if (url.hostname === 'goo.gl') return url.pathname === '/maps' || url.pathname.startsWith('/maps/')
-    return (url.hostname === 'google.com' || url.hostname === 'www.google.com') &&
-      (url.pathname === '/maps' || url.pathname.startsWith('/maps/'))
-  } catch {
-    return false
-  }
 }
 
 function orderErrorMessage(error) {
@@ -73,6 +59,8 @@ export default function CartPage() {
   const [address, setAddress] = useState('')
   const [instructions, setInstructions] = useState('')
   const [googleMapsUrl, setGoogleMapsUrl] = useState('')
+  const [locating, setLocating] = useState(false)
+  const [locationError, setLocationError] = useState('')
   const [sectorTouched, setSectorTouched] = useState(false)
   const [addressTouched, setAddressTouched] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -82,8 +70,44 @@ export default function CartPage() {
   const selectedSector = sectors.find((sector) => sector.id === sectorId)
   const deliveryFee = selectedSector ? Number(selectedSector.delivery_fee) : 0
   const estimatedTotal = grandTotal + deliveryFee
-  const mapsIsValid = isValidGoogleMapsUrl(googleMapsUrl)
-  const formIsValid = Boolean(selectedSector && address.trim() && mapsIsValid)
+  const hasDestination = Boolean(address.trim() || googleMapsUrl)
+  const formIsValid = Boolean(selectedSector && hasDestination)
+
+  function captureLocation() {
+    setSubmitError('')
+    setLocationError('')
+
+    if (!navigator.geolocation) {
+      setLocationError('Tu navegador no permite capturar la ubicación. Puedes escribir la dirección de entrega.')
+      return
+    }
+
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setGoogleMapsUrl(`https://maps.google.com/?q=${coords.latitude},${coords.longitude}`)
+        setLocationError('')
+        setLocating(false)
+      },
+      (error) => {
+        if (error.code === 1) {
+          setLocationError('No permitiste el acceso a tu ubicación. Puedes intentarlo de nuevo o escribir la dirección de entrega.')
+        } else if (error.code === 3) {
+          setLocationError('La solicitud de ubicación tardó demasiado. Intenta de nuevo o escribe la dirección de entrega.')
+        } else {
+          setLocationError('No pudimos obtener tu ubicación. Intenta de nuevo o escribe la dirección de entrega.')
+        }
+        setLocating(false)
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    )
+  }
+
+  function removeLocation() {
+    setGoogleMapsUrl('')
+    setLocationError('')
+    setSubmitError('')
+  }
 
   const handleConfirm = useCallback(
     async (orderCustomer) => {
@@ -100,9 +124,9 @@ export default function CartPage() {
           name: orderCustomer.name,
           phone: orderCustomer.phone,
           sectorId,
-          address: address.trim(),
+          address: address.trim() || null,
           instructions: instructions.trim() || null,
-          googleMapsUrl: googleMapsUrl.trim() || null,
+          googleMapsUrl: googleMapsUrl || null,
           items,
         })
         clearCart()
@@ -252,18 +276,47 @@ export default function CartPage() {
                 <option value="">{sectorsLoading ? 'Cargando sectores…' : 'Selecciona un sector'}</option>
                 {sectors.map((sector) => (
                   <option key={sector.id} value={sector.id}>
-                    {sector.name} · {formatPrice(Number(sector.delivery_fee))}
+                    {sector.name}
                   </option>
                 ))}
               </Select>
             </Field>
           )}
 
+          <div className="flex flex-col gap-2">
+            <Button
+              variant={googleMapsUrl ? 'secondary' : 'primary'}
+              onClick={captureLocation}
+              loading={locating}
+              disabled={locating}
+              className="w-full"
+            >
+              {locating ? 'Obteniendo ubicación…' : googleMapsUrl ? 'Cambiar ubicación' : 'Usar mi ubicación'}
+            </Button>
+            {googleMapsUrl && (
+              <div className="flex items-center justify-between gap-3 rounded-2xl bg-brand-light px-4 py-3">
+                <p role="status" className="text-sm font-bold text-brand-dark">Ubicación capturada</p>
+                <button
+                  type="button"
+                  onClick={removeLocation}
+                  className="shrink-0 text-sm font-bold text-brand-dark underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-brand-dark"
+                >
+                  Quitar ubicación
+                </button>
+              </div>
+            )}
+            {locationError && (
+              <p role="alert" className="rounded-2xl bg-danger-light px-4 py-3 text-sm font-semibold text-danger">
+                {locationError}
+              </p>
+            )}
+          </div>
+
           <Field
-            label="Dirección de entrega"
+            label="Dirección de entrega (opcional)"
             htmlFor="cart-address"
-            required
-            error={addressTouched && !address.trim() ? 'Escribe una dirección de entrega.' : ''}
+            hint="Puedes escribirla o usar la ubicación del dispositivo. Necesitamos al menos una de las dos."
+            error={addressTouched && !hasDestination ? 'Escribe una dirección o usa la ubicación del dispositivo.' : ''}
           >
             <Textarea
               id="cart-address"
@@ -287,25 +340,6 @@ export default function CartPage() {
             />
           </Field>
 
-          <Field
-            label="Enlace de Google Maps"
-            htmlFor="cart-maps"
-            hint="Opcional. Comparte un enlace HTTPS de Google Maps."
-            error={!mapsIsValid ? 'Pega un enlace HTTPS válido de Google Maps.' : ''}
-          >
-            <Input
-              id="cart-maps"
-              type="url"
-              inputMode="url"
-              placeholder="https://maps.app.goo.gl/…"
-              value={googleMapsUrl}
-              onChange={(event) => {
-                setGoogleMapsUrl(event.target.value)
-                setSubmitError('')
-              }}
-              className="bg-cream"
-            />
-          </Field>
         </div>
       </Card>
 

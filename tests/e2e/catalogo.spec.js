@@ -433,15 +433,20 @@ test('errores recuperables, estados vacíos y categoría inválida', async ({ pa
   await expect(page.getByRole('status')).toContainText('No hay productos')
 })
 
-test('carrito: delivery exclusivo, sectores, validaciones e identificación', async ({ page }) => {
+test('carrito: el selector oculta tarifas y exige dirección o ubicación', async ({ page }) => {
   await seedCart(page)
   await page.goto('/carrito')
 
   await expect(page.getByText('Retiro en tienda', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('combobox', { name: 'Sector de entrega' })).toBeVisible()
-  await expect(page.getByRole('option', { name: 'La Pedregosa · $1.00' })).toBeAttached()
-  await expect(page.getByRole('option', { name: 'Belenzate · $2.00' })).toBeAttached()
-  await expect(page.getByRole('option', { name: 'Campo Claro · $3.00' })).toBeAttached()
+  const options = page.getByRole('combobox', { name: 'Sector de entrega' }).getByRole('option')
+  await expect(options).toHaveText(['Selecciona un sector', 'La Pedregosa', 'Belenzate', 'Campo Claro'])
+  for (const option of await options.allTextContents()) expect(option).not.toContain('$')
+
+  const sectorBox = await page.getByRole('combobox', { name: 'Sector de entrega' }).boundingBox()
+  const locationBox = await page.getByRole('button', { name: 'Usar mi ubicación', exact: true }).boundingBox()
+  expect(locationBox.y).toBeGreaterThan(sectorBox.y + sectorBox.height)
+  await expect(page.getByRole('textbox', { name: 'Enlace de Google Maps' })).toHaveCount(0)
 
   const confirm = page.getByRole('button', { name: 'Confirmar pedido', exact: true })
   await expect(confirm).toBeDisabled()
@@ -459,12 +464,9 @@ test('carrito: delivery exclusivo, sectores, validaciones e identificación', as
   const address = page.getByRole('textbox', { name: 'Dirección de entrega' })
   await address.focus()
   await address.blur()
-  await expect(page.getByText('Escribe una dirección de entrega.', { exact: true })).toBeVisible()
+  await expect(page.getByText('Escribe una dirección o usa la ubicación del dispositivo.', { exact: true })).toBeVisible()
+  await expect(confirm).toBeDisabled()
 
-  const maps = page.getByRole('textbox', { name: 'Enlace de Google Maps' })
-  await maps.fill('https://ejemplo.com/ubicacion')
-  await expect(page.getByText('Pega un enlace HTTPS válido de Google Maps.', { exact: true })).toBeVisible()
-  await maps.fill('https://maps.app.goo.gl/ubicacion-prueba')
   await address.fill('Av. Las Américas, edificio 4')
   await expect(confirm).toBeEnabled()
   await confirm.click()
@@ -472,6 +474,70 @@ test('carrito: delivery exclusivo, sectores, validaciones e identificación', as
   await expect(page.getByRole('dialog')).toContainText('pedido delivery')
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('ubicación capturada permite confirmar sin dirección y envía el enlace de Maps', async ({ page, context }) => {
+  await seedCart(page)
+  await mockAuthenticatedCustomer(page)
+  await context.grantPermissions(['geolocation'])
+  await context.setGeolocation({ latitude: 8.598325, longitude: -71.144694 })
+
+  let submittedPayload
+  await page.route('**/rest/v1/rpc/create_delivery_order', async (route) => {
+    submittedPayload = route.request().postDataJSON().payload
+    return route.fulfill({
+      json: {
+        id: 'order-location',
+        order_number: 44,
+        subtotal: 2.4,
+        delivery_fee: 1,
+        total: 3.4,
+        status: 'nuevo',
+      },
+    })
+  })
+
+  const customerLoaded = page.waitForResponse((response) => response.url().includes('/rest/v1/customers?'))
+  await page.goto('/carrito')
+  await customerLoaded
+  await page.getByRole('combobox', { name: 'Sector de entrega' }).selectOption('sector-1')
+
+  const locate = page.getByRole('button', { name: 'Usar mi ubicación', exact: true })
+  await locate.click()
+  await expect(page.getByText('Ubicación capturada', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Cambiar ubicación', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Quitar ubicación', exact: true })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Confirmar pedido', exact: true }).click()
+  await expect(page).toHaveURL('/pedido/order-location')
+  expect(submittedPayload.address).toBeNull()
+  expect(submittedPayload.google_maps_url).toBe('https://maps.google.com/?q=8.598325,-71.144694')
+  expect(submittedPayload.latitude).toBeUndefined()
+  expect(submittedPayload.longitude).toBeUndefined()
+})
+
+test('ubicación denegada muestra un error y permite reintentar o escribir dirección', async ({ page }) => {
+  await seedCart(page)
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition(_success, error) {
+          error({ code: 1, PERMISSION_DENIED: 1, TIMEOUT: 3 })
+        },
+      },
+    })
+  })
+  await page.goto('/carrito')
+
+  const locate = page.getByRole('button', { name: 'Usar mi ubicación', exact: true })
+  await locate.click()
+  await expect(page.getByRole('alert')).toContainText('No permitiste el acceso a tu ubicación')
+  await expect(page.getByRole('button', { name: 'Usar mi ubicación', exact: true })).toBeEnabled()
+
+  await page.getByRole('combobox', { name: 'Sector de entrega' }).selectOption('sector-1')
+  await page.getByRole('textbox', { name: 'Dirección de entrega' }).fill('Calle principal, casa 12')
+  await expect(page.getByRole('button', { name: 'Confirmar pedido', exact: true })).toBeEnabled()
 })
 
 test('cliente nuevo: guarda sus datos, crea el pedido, vacía el carrito y abre la confirmación', async ({ page }) => {

@@ -17,7 +17,8 @@
 ## Fase 2
 
 - [x] Checkout por sector.
-- [x] Dirección, indicaciones y enlace de Google Maps.
+- [x] Dirección o ubicación capturada (al menos una), con indicaciones opcionales.
+- [x] Selector de sector sin tarifas; delivery visible solo en el resumen.
 - [x] Subtotal, delivery y total.
 - [x] Confirmación con número visible.
 
