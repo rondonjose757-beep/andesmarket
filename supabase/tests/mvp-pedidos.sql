@@ -383,8 +383,10 @@ end $$;
 reset role;
 rollback;
 
--- El checkout completo se ejecuta ahora con la base administrativa instalada
--- y claims de una sesión anónima realista, sin alterar su implementación.
+-- Instala y prueba el backend antes de ejecutar las regresiones del checkout.
+\ir admin-login.sql
+
+-- Conserva claims de una sesión anónima realista, sin alterar el checkout.
 select pg_catalog.set_config('request.jwt.claims', '{"is_anonymous":true}', false);
 
 \echo 'Comprobando teléfonos compartidos y un perfil por sesión...'

@@ -4,6 +4,11 @@
 # working directory name when running `supabase init`.
 project_id = "andesmarket"
 
+# Preautenticación por nombre + PIN, validada en servidor con límite atómico.
+# Esta configuración no despliega la función ni altera Auth de la tienda.
+[functions.admin-login]
+verify_jwt = false
+
 [api]
 enabled = true
 # Port to use for the API URL.

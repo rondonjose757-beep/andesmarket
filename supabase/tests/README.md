@@ -5,7 +5,17 @@ El arnés crea un contenedor PostgreSQL 17 aislado y desechable, instala
 
 1. `2026-09-19-mvp-pedidos-base.sql`;
 2. `2026-09-19-mvp-pedidos-atomicos.sql`;
-3. las aserciones de `mvp-pedidos.sql`.
+3. `2026-09-20-checkout-ubicacion.sql` y `2026-09-20-mvp-clientes-telefono-no-unico.sql`;
+4. `2026-09-20-mvp-operadores-y-acceso.sql`;
+5. `2026-09-21-admin-login-atomico.sql` y las aserciones de `admin-login.sql`;
+6. las regresiones del checkout de `mvp-pedidos.sql`.
+
+Las pruebas de login instalan `dblink` solo en la base desechable para ejecutar
+dos tandas de ocho conexiones concurrentes por socket local: mismo nombre desde
+distintas redes, y nombres distintos desde la misma red. Se exige una base con
+nombre `andesmarket_...test...`, acceso local de postgres y dblink disponible.
+No se instala esta extensión en ninguna migración de producción. Las pruebas
+unitarias HTTP/SDK usan fetch simulado y no requieren runtime Deno ni red.
 
 No usa variables del proyecto, no abre puertos, ejecuta el contenedor con
 `--network none` y lo elimina incluso cuando una prueba falla. Nunca se conecta
