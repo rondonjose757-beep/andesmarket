@@ -8,7 +8,9 @@ El arnés crea un contenedor PostgreSQL 17 aislado y desechable, instala
 3. `2026-09-20-checkout-ubicacion.sql` y `2026-09-20-mvp-clientes-telefono-no-unico.sql`;
 4. `2026-09-20-mvp-operadores-y-acceso.sql`;
 5. `2026-09-21-admin-login-atomico.sql` y las aserciones de `admin-login.sql`;
-6. las regresiones del checkout de `mvp-pedidos.sql`.
+6. `2026-09-21-admin-pin-obligatorio.sql` y `admin-pin.sql` (validación, RLS,
+   rollback de auditoría, dos cambios concurrentes y ocho fallos concurrentes);
+7. las regresiones del checkout de `mvp-pedidos.sql`.
 
 Las pruebas de login instalan `dblink` solo en la base desechable para ejecutar
 dos tandas de ocho conexiones concurrentes por socket local: mismo nombre desde

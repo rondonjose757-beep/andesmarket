@@ -385,6 +385,7 @@ rollback;
 
 -- Instala y prueba el backend antes de ejecutar las regresiones del checkout.
 \ir admin-login.sql
+\ir admin-pin.sql
 
 -- Conserva claims de una sesión anónima realista, sin alterar el checkout.
 select pg_catalog.set_config('request.jwt.claims', '{"is_anonymous":true}', false);

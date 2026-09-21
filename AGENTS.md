@@ -37,9 +37,10 @@ Toda la UI, textos, rutas y mensajes de commit están en **español**.
 | **Vercel** | Compila (`npm run build` → `dist/`) y sirve el sitio | Proyecto `andesmarket`. `vercel.json` reescribe todas las rutas a `index.html` para que React Router funcione al recargar |
 | **Supabase** | Base de datos, login anónimo, actualizaciones en vivo | Proyecto ref `ywtusdrduxsxwjeghrpu`. Esquema en `supabase/schema.sql` |
 
-- La app es 100 % frontend: **no hay backend propio ni funciones serverless**.
-  El navegador habla directo con Supabase usando la anon key; la seguridad la
-  imponen las políticas **RLS** de Postgres.
+- La tienda pública habla directo con Supabase usando la anon key; la seguridad
+  la imponen las políticas **RLS** de Postgres. El backend administrativo de login
+  está preparado en `supabase/functions/admin-login/` como Edge Function, aún sin
+  desplegar. No forma parte del bundle público ni modifica la sesión invitada.
 - Verificar en Vercel (Settings → Git) si el deploy es automático al hacer push a
   `main`. Si no está conectado, se despliega con la CLI: `vercel --prod`.
 
@@ -137,7 +138,8 @@ El esquema inicial ya incluye la estructura de subcategorías; el script del
 - `order_items` (order_id, product_id, product_name, quantity, unit_price,
   line_total) — nombre y precio se copian al momento del pedido.
 - `admin_operators`: base administrativa preparada en
-  `supabase/updates/2026-09-20-mvp-operadores-y-acceso.sql`, solo validada localmente.
+  `supabase/updates/2026-09-20-mvp-operadores-y-acceso.sql`, aplicada en Supabase
+  según confirmación del propietario.
   Alejandro, Marianny y Jorge quedan inactivos, con `auth_user_id` nulo y
   `must_change_pin = true`. No crea cuentas Auth ni aprovisiona PIN.
 - `private.admin_operator_credentials`: hash bcrypt de coste 12, separado de
@@ -152,11 +154,31 @@ firmado `is_anonymous = false` y la asociación activa, nunca `user_metadata`.
 Es `SECURITY DEFINER` con `search_path` vacío y ejecución solo para
 `authenticated`; no concede permisos sobre pedidos. Solo comprueba pertenencia:
 el cambio obligatorio de PIN debe imponerse antes del acceso operativo futuro.
-La Edge Function, sus permisos mínimos, bloqueo atómico, aprovisionamiento
-seguro de credenciales y limpieza de intentos pertenecen a la siguiente fase.
+La segunda fase está en `supabase/updates/2026-09-21-admin-login-atomico.sql` y
+`supabase/functions/admin-login/`: `private.admin_login_limits`, función privada
+`attempt_admin_login` y puente RPC `public.admin_login_attempt` invoker exclusivo
+de `service_role`. Bloquea por nombre y HMAC de red: cinco fallos en ventana móvil
+de 15 minutos, bloqueo de 15 minutos desde el quinto fallo. RLS sigue activo;
+no se conceden permisos de tabla al backend. Solo probada localmente, sin deploy.
+El login devuelve token de canje para `verifyOtp`, no el hash del PIN ni el email.
+El runtime requiere HMAC secreto y un perfil de proxy verificado; sin evidencia
+de saneamiento del X-Forwarded-For hospedado falla cerrado. Ver contrato,
+aprovisionamiento y restricciones en `docs/admin-login-backend.md`.
+Faltan aprovisionamiento real, aplicar/verificar la rotación de PIN, verificación de gateway/runtime
+y limpieza programada. `last_login_at` registra validación del PIN, no canje Auth.
 El esquema `private` no se expone en la Data API. La futura sesión administrativa
 será independiente de la sesión anónima, sin modificar `AuthProvider` ni checkout.
-Todavía no existen rutas `/admin`, login ni componentes administrativos.
+Todavía no existen rutas `/admin`, pantalla de login ni componentes administrativos.
+
+La rotación local está en `2026-09-21-admin-pin-obligatorio.sql`, después del login.
+`public.change_admin_pin(current_pin,new_pin)` es puente invoker a la validación
+privada por UID/sesión no anónima/operador activo. Cambia bcrypt coste 12, fecha y
+flag atómicamente; auditoría y límites privados (cinco fallos/15 min, bloqueo
+15 min) tienen RLS sin acceso directo cliente. No activa operadores.
+`private.is_operational_admin()` exige además `must_change_pin=false`; usarlo en
+futuras RPC/RLS operativas. `is_active_admin()` sigue permitiendo identificar al
+operador con cambio pendiente. No hay nuevos permisos de pedidos. La rotación no
+revoca sesiones Auth. Ver pruebas SQL `admin-pin.sql` y contrato en la guía backend.
 
 RLS: catálogo y sectores activos de lectura pública; cada sesión solo ve su
 perfil, pedidos e ítems. Los inserts directos de pedidos e ítems están revocados:
@@ -223,11 +245,12 @@ teléfono e Instagram mediante `ContactMenu`.
   Siguen pendientes los íconos definitivos en `public/icons/`.
 - No hay panel de administración, pagos en línea, variantes de producto ni
   control de stock al confirmar pedidos.
-- Veintidós pruebas de navegador, dos unitarias y el arnés SQL de
+- Veintidós pruebas de navegador, diez unitarias y el arnés SQL de
   `supabase/tests/` cubren catálogo, checkout delivery, creación atómica, RLS,
   recibo y regresiones visuales. Playwright usa Supabase ficticio y no crea
   pedidos reales; el arnés SQL usa PostgreSQL 17 desechable y nunca se conecta
-  al proyecto remoto.
+  al proyecto remoto. El arnés incluye login y concurrencia con dblink por socket
+  local, exclusivamente de pruebas; no se instala dblink mediante migraciones.
 - El 14-09-2026 se aplicó `supabase/updates/2026-09-14-subcategorias.sql`: 22
   subcategorías y 94 productos clasificados. Para nuevos productos, elegir una
   subcategoría de su misma categoría. Para cambiar la categoría, limpiar primero

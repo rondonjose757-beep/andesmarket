@@ -1,4 +1,4 @@
-# Backend de acceso administrativo — fase 2
+# Backend de acceso administrativo — login y rotación de PIN
 
 Implementado localmente el 21-09-2026. No desplegado. La aplicación de la migración
 base del 20-09 fue confirmada por el propietario; esta fase no consulta el remoto.
@@ -152,15 +152,13 @@ configuración y cabeceras sintéticas sin debilitar el código de producción.
    ligado. No usar SQL con PIN literal, SQL Editor que conserve consultas,
    argumentos de shell, salida de consola o archivos de producción con el PIN.
    `operator_id` debe provenir de la ficha bloqueada; actualizar `pin_changed_at`.
-6. Mantener `must_change_pin = true` hasta que se complete un cambio individual.
-   El flag y el token devuelto no obligan por sí solos al usuario a cambiarlo.
-   **Antes de habilitar operaciones**, implementar el endpoint de rotación con
-   sesión validada, validación de PIN nuevo distinto, hash/sal nuevos, bloqueo
-   de fila y actualización atómica de hash, fecha y flag. Las futuras RPC/RLS
-   operativas deben exigir `must_change_pin = false`, además de pertenencia;
-   una guarda React no basta. Actualmente solo puede leer su ficha, no pedidos.
-   Mientras no exista rotación, cambiar individualmente por el canal operativo
-   seguro antes de activar al operador, o mantenerlo inactivo.
+6. Mantener `must_change_pin = true` hasta completar la RPC de rotación descrita
+   debajo. La nueva migración está probada localmente, no aplicada al remoto por
+   este trabajo. Las futuras RPC/RLS operativas deben exigir
+   `private.is_operational_admin()`; una guarda React no basta. Actualmente un
+   operador activo solo puede leer su ficha y cambiar su PIN, no operar pedidos.
+   Los tres operadores permanecen inactivos; la activación es un paso operativo
+   explícito posterior al aprovisionamiento y verificación del entorno.
 7. Activar únicamente tras verificar identidad, hash, rotación y configuración.
    No cambiar credenciales, emails ni asociaciones durante emisión de links.
    `generateLink` puede crear una identidad si su email deja de existir entre
@@ -199,7 +197,7 @@ evita es exponer el email interno en su respuesta de login. Nunca compartir
 la clave de almacenamiento Auth con la sesión anónima.
 
 Pendientes antes de publicar: verificar runtime Deno y flujo Auth real en un
-entorno autorizado, gateway/IP confiable, aprovisionamiento, rotación de PIN,
+entorno autorizado, gateway/IP confiable, aprovisionamiento, aplicar/probar la rotación de PIN,
 duración/revocación de sesiones y OTP (no cambiar globalmente parámetros Auth
 del proyecto sin evaluar la tienda), y política de recuperación. El acceso al
 buzón/control de Auth también permite autenticación por mecanismos estándar;
@@ -212,6 +210,75 @@ bloqueo global de cinco fallos puede afectar operadores que compartan red;
 no es protección completa frente a denegación de servicio distribuida.
 
 ## Verificación local
+
+### Rotación obligatoria (implementada solo localmente)
+
+Aplicar manualmente `2026-09-21-admin-pin-obligatorio.sql` después de la migración
+de login. No activa operadores, no modifica `is_active_admin()` y no concede
+permisos de pedidos/dashboard. No requiere otra Edge Function ni secretos.
+
+Contrato del futuro cliente administrativo independiente:
+
+```js
+const { data, error } = await adminClient.rpc('change_admin_pin', {
+  current_pin: pinActual,
+  new_pin: pinNuevo,
+})
+```
+
+Exactamente dos argumentos text, sin id de operador ni flags. Usar POST sobre
+HTTPS con el JWT del operador; nunca service_role ni el cliente público invitado.
+El puente `public.change_admin_pin` es SECURITY INVOKER. La implementación
+`private.change_admin_pin` es SECURITY DEFINER con search_path vacío; ambas
+revocan ejecución de PUBLIC/anon/service_role y conceden a authenticated.
+El rol authenticated no basta: UID, claim firmado booleano `is_anonymous=false`
+y asociación activa se verifican dentro de la función privada, bajo lock.
+
+Devuelve solo `{success: boolean, outcome: string}`. Outcomes: `ok`, `denied`,
+`invalid_new_pin`, `rate_limited`. Los rechazos esperados son resultados de RPC,
+no errores SQL ni estados HTTP 429: el futuro cliente debe revisar `data.success`
+y `data.outcome`, además de `error`. No lanzar excepciones tras un rechazo dentro
+de una transacción llamadora: hacerlo revertiría sus contadores. Los clientes
+Data API no tienen una RPC de transacciones arbitrarias ni conexión SQL directa.
+
+Verifica PIN actual (4–12 dígitos, por compatibilidad con login), exige nuevo PIN
+de exactamente cuatro dígitos ASCII, distinto al actual y al temporal prohibido.
+El literal de la lista de prohibición en SQL es una regla pública de validación,
+no aprovisiona ni almacena una credencial; los fixtures de pruebas son sintéticos.
+Bcrypt usa coste 12 y sal nueva, con el esquema de pgcrypto resuelto dinámicamente.
+
+Bloquea operador, credencial y contador en ese orden. Verifica el hash vigente
+después de esperar y actualiza hash, `pin_changed_at`, `must_change_pin=false`
+y auditoría en una transacción. Dos cambios concurrentes con el mismo PIN anterior
+solo permiten un éxito; el segundo verifica contra el hash nuevo y falla.
+
+`private.admin_pin_limits` mantiene cinco fallos de PIN actual en ventana móvil
+de 15 minutos por operador; el quinto devuelve `rate_limited` e inicia 15 minutos
+de bloqueo. Durante el bloqueo no verifica PIN ni extiende el plazo. Los éxitos
+no borran fallos. PIN nuevo inválido con PIN actual correcto no incrementa fallos.
+El contador es independiente del login y no depende de IP ni instancias Edge.
+
+`private.admin_pin_events` registra únicamente id, operator_id, outcome,
+occurred_at y expires_at (90 días). Registra resultados para operadores activos;
+rechazos por identidad ausente/inactiva/anónima no crean eventos. RLS activo en
+ambas tablas, sin políticas permisivas ni acceso directo cliente/service_role.
+No registra PIN, hashes, tokens o IP. La limpieza por expiración sigue pendiente.
+
+`private.is_active_admin()` reconoce pertenencia y permite leer la ficha propia
+aun con cambio pendiente. `private.is_operational_admin()` además exige
+`must_change_pin=false`. Usar este último dentro de todas las futuras RPC/RLS
+operativas; crearlo no concede autorización sobre otras tablas automáticamente.
+
+La rotación no revoca JWT, refresh tokens ni tokens de canje emitidos. Una sesión
+existente de la misma identidad podrá pasar el auxiliar operacional tras el cambio.
+La estrategia de revocación y recuperación requiere una fase explícita antes de
+ampliar permisos. Revisar logs de parámetros también en PostgREST/PostgreSQL.
+
+`admin-pin.sql` prueba validaciones, permisos, pertenencia, rollback ante fallo
+de auditoría, expiración y concurrencia real (dos cambios y ocho fallos). Todos
+los operadores vuelven a quedar inactivos/sin vínculo al finalizar los fixtures.
+Las unitarias Node verifican el contrato RPC con SDK/fetch simulado y restricciones
+estructurales de la migración; no sustituyen las pruebas de comportamiento SQL.
 
 `npm run test:unit` ejecuta las validaciones/handler en Node y prueba los contratos
 generateLink/verifyOtp del SDK real con fetch simulado; no emite tokens reales.
@@ -231,6 +298,9 @@ checkout público. Deno y Auth real no se ejecutaron contra Supabase remoto.
 - [Secretos del runtime](https://supabase.com/docs/guides/functions/secrets)
 - [Respuesta del equipo sobre X-Forwarded-For](https://github.com/orgs/supabase/discussions/7884)
 - [Logs y parámetros de PostgreSQL 17](https://www.postgresql.org/docs/17/runtime-config-logging.html)
+- [Bloqueos de filas PostgreSQL 17](https://www.postgresql.org/docs/17/explicit-locking.html)
+- [pgcrypto: crypt y gen_salt](https://www.postgresql.org/docs/17/pgcrypto.html)
+- [Seguridad y privilegios de funciones Supabase](https://supabase.com/docs/guides/database/functions)
 
 Contratos contrastados además con `node_modules/@supabase/auth-js/src/lib/types.ts`,
 `GoTrueAdminApi.ts`, `GoTrueClient.ts` y los transformadores de respuesta del SDK.

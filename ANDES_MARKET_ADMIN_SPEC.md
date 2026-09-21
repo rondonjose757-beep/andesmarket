@@ -134,16 +134,16 @@ Reglas:
 
 ## 9. Acceso administrativo
 
-### Estado implementado: base SQL local, 20-09-2026
+### Estado implementado: base SQL, 20-09-2026
 
 `2026-09-20-mvp-operadores-y-acceso.sql` es una actualización incremental manual
-posterior a las de pedidos, ubicación y teléfonos. Está probada únicamente en
-PostgreSQL 17 desechable; no se aplicó al proyecto remoto.
+posterior a las de pedidos, ubicación y teléfonos. Fue probada en PostgreSQL 17
+desechable; el propietario confirmó posteriormente su aplicación en Supabase.
 
 Se crean tres fichas inactivas y sin `auth_user_id`, con `must_change_pin = true`.
 No se crean cuentas Auth ni emails ficticios. Credenciales e intentos privados
 quedan vacíos: el PIN temporal aprobado se aprovisionará por un canal seguro,
-fuera del SQL versionado. No existe login, Edge Function ni ruta `/admin` todavía.
+fuera del SQL versionado. En esta primera fase no se implementó login ni `/admin`.
 
 `private.is_active_admin()` es estable, `SECURITY DEFINER`, con `search_path`
 vacío, tablas calificadas y ejecución revocada de PUBLIC/anon. `authenticated`
@@ -166,6 +166,48 @@ y respuestas genéricas contra enumeración. Definir secreto externo y rotación
 para HMAC-SHA256 de red, tratamiento de proxies confiables y limpieza programada
 de intentos vencidos. La expiración inicial de 90 días no borra filas por sí sola
 ni implementa rate limiting. No registrar PIN, tokens, sesiones ni IP plana.
+
+### Fase 2 implementada localmente: backend, 21-09-2026
+
+La migración `2026-09-21-admin-login-atomico.sql` añade estado privado de límites,
+`private.attempt_admin_login` y el puente RPC invoker `public.admin_login_attempt`,
+ambos ejecutables solo por `service_role` y el propietario. No expone `private`
+en la Data API ni concede lectura directa de credenciales. La función es de
+preautenticación: no requiere un UID previo; su acceso se restringe mediante ACL.
+
+La Edge Function `supabase/functions/admin-login/index.ts` recibe exclusivamente
+nombre y PIN, verifica límites/credencial en la RPC y genera un token de canje
+Auth mediante `generateLink`. El futuro cliente usará `verifyOtp` con ese token.
+Los límites son cinco fallos en ventana móvil de 15 minutos por nombre y por red
+global, con bloqueo de 15 minutos desde el quinto. Locks de filas serializan
+solicitudes concurrentes. La fecha de login certifica validación de PIN, no el
+canje posterior, que es una transacción independiente.
+
+El contrato completo y la guía segura de aprovisionamiento están en
+[docs/admin-login-backend.md](docs/admin-login-backend.md). Solo validado localmente,
+sin deploy, frontend, rutas ni cambios en checkout. Antes de habilitarlo faltan
+identidades Auth, rotación individual y comprobar que el gateway sanea XFF; el
+perfil confiable permanece desactivado por defecto. No basta recibir una cabecera
+ni el flag `must_change_pin` para autorizar operaciones futuras. La limpieza de
+registros por expiración tampoco queda programada en esta fase.
+
+### Rotación de PIN implementada localmente
+
+`2026-09-21-admin-pin-obligatorio.sql` añade `private.change_admin_pin(current_pin,
+new_pin)` y un puente público SECURITY INVOKER con exactamente esos argumentos.
+La función privada valida UID, sesión no anónima y operador activo, comprueba
+bcrypt actual y exige cuatro dígitos nuevos, distintos del actual y del temporal
+prohibido. Bloquea filas y actualiza hash coste 12, fecha, flag y auditoría en una
+transacción. Cinco fallos/15 minutos bloquean 15 minutos por operador, en estado
+privado separado del login. Tablas `admin_pin_limits` y `admin_pin_events` con RLS
+y sin permisos de datos cliente. No activa operadores ni modifica la tienda.
+
+`is_active_admin()` se conserva para pertenencia y cambio pendiente;
+`private.is_operational_admin()` exige adicionalmente `must_change_pin=false`.
+Todas las futuras operaciones deben usar el segundo auxiliar. Esta migración no
+concede permisos de pedidos/dashboard ni revoca sesiones Auth existentes.
+Pruebas locales verifican rechazos, rollback y cambios/fallos concurrentes.
+Contrato, respuestas y riesgos en `docs/admin-login-backend.md`.
 
 ### Operadores iniciales
 
@@ -346,7 +388,7 @@ La tasa es informativa para la operación manual del MVP. No recalcula precios U
 
 - `private.admin_login_attempts`: UUID, operador nullable con FK restrictiva, nombre normalizado, `success`, código cerrado `internal_reason`, `network_hmac` opcional de 32 bytes, `attempted_at`, `created_at` y `expires_at`.
 - Índices por nombre/fecha, HMAC/fecha, operador/fecha y expiración. HMAC-SHA256 requiere secreto del servidor; no usar hash simple de una IP ni guardar IP plana. La aplicación no debe guardar PIN u otros secretos en el campo de nombre.
-- Retención inicial de 90 días. Limpieza, bloqueo atómico y permisos de acceso servidor pendientes del login; la tabla por sí sola no limita intentos.
+- Retención inicial de 90 días. La segunda fase usa `private.admin_login_limits` para el bloqueo atómico; la limpieza por expiración sigue pendiente. Las tablas no conceden acceso directo a los clientes ni a service_role.
 
 #### `order_events`
 
@@ -411,13 +453,13 @@ La tasa es informativa para la operación manual del MVP. No recalcula precios U
 
 ### Administradores
 
-- Función auxiliar estable `is_active_admin()` basada en `auth.uid()`, `admin_operators.active` y usuario no anónimo.
+- Función auxiliar estable `is_active_admin()` para pertenencia; operaciones futuras deben exigir `private.is_operational_admin()`, que además comprueba `must_change_pin=false`.
 - Políticas de lectura administrativa en pedidos, ítems, eventos, sectores y tasas.
 - Mutaciones operativas solo mediante RPCs específicas; evitar políticas generales de `update` sobre pedidos si permiten saltarse transiciones, auditoría o recálculo.
 - Productos/categorías continúan gestionándose según la política operativa decidida; si el dashboard no los edita en este MVP, no ampliar permisos.
 - Ninguna política usa datos enviados por el cliente para decidir que es administrador.
 
-Todas las funciones `security definer` deben fijar `search_path`, calificar esquemas, validar `auth.uid()`, revocar ejecución de `public` y conceder solo a los roles necesarios. `service_role` nunca aparece en Vite, React, `.env` pública ni respuestas de red.
+Todas las funciones `security definer` deben fijar `search_path`, calificar esquemas, revocar ejecución de `public` y conceder solo a los roles necesarios. Las funciones para usuarios con sesión validan `auth.uid()`; la preautenticación de login es la excepción explícita, ejecutable exclusivamente por backend. `service_role` nunca aparece en Vite, React, `.env` pública ni respuestas de red.
 
 ## 19. Creación atómica y validación de precios
 
@@ -581,7 +623,7 @@ Las migraciones y pruebas SQL deben ejecutarse primero contra un proyecto Supaba
 
 1. **Pedidos históricos:** ¿existen pedidos reales con `order_type = retiro` o `status = listo`, y cómo deben conservarse/reportarse? Se recomienda mantenerlos como historia y excluirlos del nuevo flujo, mapeando `listo` a `preparando` solo si el negocio confirma equivalencia.
 2. **Estado entregado vs. pago:** ¿se debe impedir marcar `entregado` cuando `payment_status != confirmado`, o solo advertir? La especificación no debe imponer una regla contable no confirmada.
-3. **PIN inicial:** aprobado como temporal; los tres operadores quedan con cambio obligatorio. Falta implementar la rotación individual antes de habilitar operaciones administrativas.
+3. **PIN inicial:** aprobado como temporal; los tres operadores quedan inactivos y con cambio obligatorio. La rotación está implementada y probada localmente; falta aplicarla y verificarla en el entorno autorizado antes de habilitar operaciones administrativas.
 4. **Cuenta Auth de operadores:** se necesitan identificadores internos controlados (normalmente emails no públicos) para crear las tres identidades de Supabase Auth; deben definirse fuera del repositorio.
 
 Estas preguntas no impiden diseñar las migraciones en un entorno aislado, pero sí bloquean aplicar la migración a producción y habilitar el dashboard real.
