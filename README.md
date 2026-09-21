@@ -22,8 +22,11 @@ Auth anónima). Pensado para desplegar en Vercel.
 
 1. Crea un proyecto nuevo en [supabase.com](https://supabase.com) (o reutiliza uno tuyo).
 2. En una base nueva, ejecuta `supabase/schema.sql` y después los archivos de
-   `supabase/updates/` en orden. En una base existente, no repitas el esquema
-   inicial: aplica únicamente las actualizaciones que falten.
+   `supabase/updates/` pendientes por dependencia: base de pedidos, pedidos
+   atómicos, ubicación, teléfonos compartidos y operadores/acceso. El esquema
+   inicial ya incluye subcategorías; no repitas el script histórico del 14-09
+   sobre una instalación nueva. Son actualizaciones manuales, sin historial CLI.
+   En una base existente, no repitas el esquema inicial ni actualizaciones aplicadas.
 3. En **Authentication → Providers**, activa **Anonymous sign-ins** (la app
    crea una sesión anónima por visitante para poder guardar su perfil y sus
    pedidos sin pedirle que se registre).
@@ -80,6 +83,34 @@ usa las variables del proyecto ni se conecta a Supabase remoto:
 docker pull postgres:17-alpine
 sh supabase/tests/run-mvp-pedidos.sh
 ```
+
+El arnés también instala la base administrativa y prueba operadores, permisos,
+RLS y conservación del contrato público. Si Docker no está disponible, se puede
+ejecutar `psql -v ON_ERROR_STOP=1 -f supabase/tests/mvp-pedidos.sql` sobre una
+base **nueva y desechable** de PostgreSQL 17, especificando explícitamente socket,
+usuario y base locales. El arnés simula Auth; no prueba emisión de sesiones reales.
+
+## Base administrativa preparada (solo validada localmente)
+
+`supabase/updates/2026-09-20-mvp-operadores-y-acceso.sql` crea las fichas de
+Alejandro, Marianny y Jorge inactivas, sin vínculo Auth y con cambio de PIN
+obligatorio. Las tablas privadas de credenciales e intentos quedan vacías.
+El PIN temporal se aprovisionará fuera del repositorio mediante un canal seguro;
+solo se admite hash bcrypt con sal individual y coste 12.
+
+RLS permite únicamente leer la ficha propia a un operador activo con sesión no
+anónima. Las credenciales e intentos no tienen acceso cliente, ni siquiera para
+un operador. El auxiliar `private.is_active_admin()` comprueba pertenencia en
+base de datos; no usa `user_metadata` y no abre permisos sobre pedidos.
+La guía de [RLS de Supabase](https://supabase.com/docs/guides/database/postgres/row-level-security)
+fundamenta la combinación de permisos explícitos, RLS y comprobación del claim
+firmado de sesión anónima.
+
+No se ha aplicado esta migración al proyecto remoto. Todavía faltan cuentas Auth,
+aprovisionamiento y cambio de PIN, Edge Function de login, límites atómicos de
+intentos, secreto HMAC y limpieza por expiración (90 días iniciales). El login
+futuro usará sesión administrativa independiente. No existen rutas `/admin` ni
+componentes administrativos; `AuthProvider` y checkout permanecen intactos.
 
 ## Pendientes para tener marca propia
 

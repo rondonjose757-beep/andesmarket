@@ -116,7 +116,10 @@ La base histórica está definida en `supabase/schema.sql` (solo instalación
 inicial). Los cambios incrementales revisados se guardan en `supabase/updates/`;
 no se usa un historial de migraciones de la CLI. No volver a ejecutar el esquema
 inicial sobre la base existente. Para reproducir el estado vigente, se instala el
-esquema inicial y luego se aplican los archivos de `updates/` en orden.
+esquema inicial y luego se aplican las actualizaciones pendientes en su orden
+de dependencia, no por orden alfabético: base de pedidos antes de atómicos.
+El esquema inicial ya incluye la estructura de subcategorías; el script del
+14-09 es para el inventario histórico existente y no se repite en una base nueva.
 
 - `categories` (name, sort_order)
 - `subcategories` (category_id, name, sort_order): cada una pertenece a una categoría.
@@ -133,6 +136,27 @@ esquema inicial y luego se aplican los archivos de `updates/` en orden.
   snapshots del cliente/sector, importes, pago y campos operativos.
 - `order_items` (order_id, product_id, product_name, quantity, unit_price,
   line_total) — nombre y precio se copian al momento del pedido.
+- `admin_operators`: base administrativa preparada en
+  `supabase/updates/2026-09-20-mvp-operadores-y-acceso.sql`, solo validada localmente.
+  Alejandro, Marianny y Jorge quedan inactivos, con `auth_user_id` nulo y
+  `must_change_pin = true`. No crea cuentas Auth ni aprovisiona PIN.
+- `private.admin_operator_credentials`: hash bcrypt de coste 12, separado de
+  la ficha pública; inicialmente vacía. `private.admin_login_attempts`: códigos
+  internos cerrados, HMAC-SHA256 opcional y expiración inicial de 90 días;
+  inicialmente vacía. Nunca guardar PIN, IP plana, tokens o sesiones en intentos.
+
+La base administrativa activa RLS en las tres tablas. Solo un operador activo
+puede leer su propia ficha; no hay escrituras cliente ni políticas permisivas
+en las tablas privadas. `private.is_active_admin()` usa `auth.uid()`, el claim
+firmado `is_anonymous = false` y la asociación activa, nunca `user_metadata`.
+Es `SECURITY DEFINER` con `search_path` vacío y ejecución solo para
+`authenticated`; no concede permisos sobre pedidos. Solo comprueba pertenencia:
+el cambio obligatorio de PIN debe imponerse antes del acceso operativo futuro.
+La Edge Function, sus permisos mínimos, bloqueo atómico, aprovisionamiento
+seguro de credenciales y limpieza de intentos pertenecen a la siguiente fase.
+El esquema `private` no se expone en la Data API. La futura sesión administrativa
+será independiente de la sesión anónima, sin modificar `AuthProvider` ni checkout.
+Todavía no existen rutas `/admin`, login ni componentes administrativos.
 
 RLS: catálogo y sectores activos de lectura pública; cada sesión solo ve su
 perfil, pedidos e ítems. Los inserts directos de pedidos e ítems están revocados:

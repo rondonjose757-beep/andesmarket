@@ -134,13 +134,46 @@ Reglas:
 
 ## 9. Acceso administrativo
 
+### Estado implementado: base SQL local, 20-09-2026
+
+`2026-09-20-mvp-operadores-y-acceso.sql` es una actualización incremental manual
+posterior a las de pedidos, ubicación y teléfonos. Está probada únicamente en
+PostgreSQL 17 desechable; no se aplicó al proyecto remoto.
+
+Se crean tres fichas inactivas y sin `auth_user_id`, con `must_change_pin = true`.
+No se crean cuentas Auth ni emails ficticios. Credenciales e intentos privados
+quedan vacíos: el PIN temporal aprobado se aprovisionará por un canal seguro,
+fuera del SQL versionado. No existe login, Edge Function ni ruta `/admin` todavía.
+
+`private.is_active_admin()` es estable, `SECURITY DEFINER`, con `search_path`
+vacío, tablas calificadas y ejecución revocada de PUBLIC/anon. `authenticated`
+solo recibe ejecución del auxiliar y uso del esquema para resolverlo. Exige
+UID, claim firmado `is_anonymous` booleano falso y asociación activa en la base;
+claims ausentes o de otro tipo deniegan acceso. No utiliza `user_metadata`.
+Solo comprueba pertenencia, no valida el PIN ni su rotación.
+
+La política `operadores activos leen su propia ficha` permite SELECT de la ficha
+propia. RLS está activo en las tres tablas; las privadas no tienen políticas
+permisivas ni permisos de datos para roles cliente o `service_role` en esta fase.
+El propietario mantiene acceso para aprovisionamiento controlado. El login
+servidor deberá añadir permisos/RPC mínimos sin exponer `private` en la Data API.
+No hay permisos administrativos nuevos sobre pedidos, catálogo ni clientes.
+
+Antes de habilitar acceso operativo: definir identidades Auth reales, emitir
+sesiones con un mecanismo Auth soportado, aprovisionar hashes con sal individual,
+imponer cambio individual del PIN temporal, implementar límites/bloqueos atómicos
+y respuestas genéricas contra enumeración. Definir secreto externo y rotación
+para HMAC-SHA256 de red, tratamiento de proxies confiables y limpieza programada
+de intentos vencidos. La expiración inicial de 90 días no borra filas por sí sola
+ni implementa rate limiting. No registrar PIN, tokens, sesiones ni IP plana.
+
 ### Operadores iniciales
 
 - Alejandro
 - Marianny
 - Jorge
 
-Cada operador usa su nombre y, provisionalmente, el PIN `2405`. Debe obligarse un cambio individual antes de producción o en el primer acceso; compartir permanentemente el mismo PIN reduce la atribución real del historial.
+Cada operador usará su nombre y, provisionalmente, el PIN temporal acordado fuera del repositorio. Debe obligarse un cambio individual antes de producción o en el primer acceso; compartir permanentemente el mismo PIN reduce la atribución real del historial.
 
 ### Solución mínima recomendada
 
@@ -154,7 +187,7 @@ Un PIN de cuatro dígitos tiene solo 10.000 combinaciones. Ni ofuscarlo ni guard
 6. Tras éxito, la función usa `service_role` solo en su entorno secreto para producir un enlace/token de acceso de un solo uso del usuario Auth asociado. El cliente lo canjea con Supabase Auth y recibe una sesión normal, corta y revocable. La función nunca devuelve `service_role`, la credencial aleatoria ni el hash.
 7. RLS autoriza el dashboard solo cuando `auth.uid()` corresponde a un `admin_operators.active = true` y la identidad no es anónima. Los clientes anónimos no pasan esa condición.
 8. Limitar, como mínimo, a 5 fallos por operador y huella de red en 15 minutos, bloquear temporalmente 15 minutos, responder con un error genérico y registrar los intentos. Los límites exactos deben poder ajustarse sin redeploy del frontend.
-9. La sesión administrativa se mantiene en `sessionStorage` cuando sea viable, expira por inactividad y ofrece cierre explícito. No debe convivir silenciosamente con la sesión anónima: al entrar/salir del área admin se reemplaza/restaura el contexto correspondiente.
+9. La sesión administrativa será independiente de la sesión anónima pública, con cliente y clave de almacenamiento distintos. Se mantiene en `sessionStorage` cuando sea viable, expira por inactividad y ofrece cierre explícito. Entrar/salir del dashboard no reemplaza ni cierra la sesión invitada ni modifica `AuthProvider` o el checkout público.
 
 La Edge Function constituye una nueva pieza server-side, pero es más pequeña y segura que inventar autenticación en React. Una alternativa aún más segura y sencilla técnicamente sería usar email/contraseña fuerte o magic link de Supabase Auth, pero no cumple la experiencia solicitada de nombre + PIN.
 
@@ -163,7 +196,7 @@ La Edge Function constituye una nueva pieza server-side, pero es más pequeña y
 - Un PIN de cuatro dígitos sigue siendo una credencial débil ante filtración, observación o uso compartido; hashing y rate limiting reducen, no eliminan, el riesgo.
 - El bloqueo basado en IP puede afectar redes compartidas y la IP puede cambiar; debe combinarse con operador, ventana temporal y auditoría.
 - La sesión emitida es tan sensible como cualquier sesión administrativa; XSS y dispositivos compartidos siguen siendo riesgos.
-- Si no se acepta una Edge Function o un mecanismo servidor equivalente, el acceso por PIN no cumple seguridad razonable y debe sustituirse por el login estándar de Supabase Auth. No es aceptable incluir `2405`, su hash verificable o `service_role` en el bundle.
+- Si no se acepta una Edge Function o un mecanismo servidor equivalente, el acceso por PIN no cumple seguridad razonable y debe sustituirse por el login estándar de Supabase Auth. No es aceptable incluir el PIN temporal, su hash verificable o `service_role` en el bundle.
 
 ## 10. Dashboard operativo
 
@@ -306,14 +339,14 @@ La tasa es informativa para la operación manual del MVP. No recalcula precios U
 
 #### `admin_operators`
 
-- `id uuid primary key`, `auth_user_id uuid unique references auth.users`, `display_name text`, `normalized_name text unique`, `pin_hash text`, `active boolean`, `must_change_pin boolean`, timestamps y `last_login_at`.
-- Sin `select` de `pin_hash` para clientes ni para el frontend administrativo. Preferiblemente separar el hash a `admin_operator_credentials`, accesible solo por la Edge Function/service role, para impedir que una consulta accidental del dashboard lo obtenga.
+- `public.admin_operators`: `id uuid primary key`, `auth_user_id uuid unique references auth.users` nullable, `display_name`, `normalized_name` único igual al nombre recortado y en minúsculas, `active`, `must_change_pin`, timestamps y `last_login_at`. No contiene hash. Activar exige vínculo Auth; una FK restrictiva conserva la asociación hasta desvinculación controlada.
+- `private.admin_operator_credentials`: `operator_id` PK/FK restrictiva, `pin_hash` bcrypt coste 12, `pin_changed_at`, `created_at`, `updated_at`. Sin acceso frontend ni grants de datos servidor todavía. El trigger actualiza `updated_at`; el futuro cambio de PIN debe actualizar `pin_changed_at` y `must_change_pin` atómicamente.
 
 #### `admin_login_attempts`
 
-- Operador/identificador normalizado, huella de red con hash y sal del servidor, éxito, fecha, motivo y ventana de bloqueo.
-- Índice por `(normalized_name, attempted_at desc)` y por huella/fecha.
-- Retención operativa definida (propuesta: 90 días); solo Edge Function/service role escribe y consulta.
+- `private.admin_login_attempts`: UUID, operador nullable con FK restrictiva, nombre normalizado, `success`, código cerrado `internal_reason`, `network_hmac` opcional de 32 bytes, `attempted_at`, `created_at` y `expires_at`.
+- Índices por nombre/fecha, HMAC/fecha, operador/fecha y expiración. HMAC-SHA256 requiere secreto del servidor; no usar hash simple de una IP ni guardar IP plana. La aplicación no debe guardar PIN u otros secretos en el campo de nombre.
+- Retención inicial de 90 días. Limpieza, bloqueo atómico y permisos de acceso servidor pendientes del login; la tabla por sí sola no limita intentos.
 
 #### `order_events`
 
@@ -434,7 +467,7 @@ Cada migración debe incluir consultas de prevalidación o abortar con mensaje c
 ### Ajustar
 
 - `App.jsx`: rutas privadas lazy del dashboard y guarda administrativa.
-- `AuthProvider.jsx`: separar claramente sesión invitada y sesión administrativa; manejar errores de consultas y cierre/expiración.
+- Sesión administrativa: crear cliente/contexto independiente, manejar errores y cierre/expiración sin modificar `AuthProvider.jsx` ni la sesión invitada pública.
 - `CartPage.jsx`: delivery exclusivo, selector de sector sin tarifas, dirección opcional, geolocalización bajo demanda, indicaciones y desglose de importes.
 - `CheckoutModal.jsx`/`ProfileForm.jsx`: nombre y teléfono dentro de un flujo coherente, sin convertirlo en registro obligatorio.
 - `checkout.js`: consumir la RPC atómica y enviar solo ids/cantidades y datos de delivery.
@@ -548,7 +581,7 @@ Las migraciones y pruebas SQL deben ejecutarse primero contra un proyecto Supaba
 
 1. **Pedidos históricos:** ¿existen pedidos reales con `order_type = retiro` o `status = listo`, y cómo deben conservarse/reportarse? Se recomienda mantenerlos como historia y excluirlos del nuevo flujo, mapeando `listo` a `preparando` solo si el negocio confirma equivalencia.
 2. **Estado entregado vs. pago:** ¿se debe impedir marcar `entregado` cuando `payment_status != confirmado`, o solo advertir? La especificación no debe imponer una regla contable no confirmada.
-3. **PIN inicial:** ¿se acepta obligar a Alejandro, Marianny y Jorge a cambiar `2405` por PINes distintos antes de producción? Es la recomendación mínima para que la atribución tenga valor.
+3. **PIN inicial:** aprobado como temporal; los tres operadores quedan con cambio obligatorio. Falta implementar la rotación individual antes de habilitar operaciones administrativas.
 4. **Cuenta Auth de operadores:** se necesitan identificadores internos controlados (normalmente emails no públicos) para crear las tres identidades de Supabase Auth; deben definirse fuera del repositorio.
 
 Estas preguntas no impiden diseñar las migraciones en un entorno aislado, pero sí bloquean aplicar la migración a producción y habilitar el dashboard real.

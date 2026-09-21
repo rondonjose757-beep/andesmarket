@@ -32,6 +32,13 @@ as $$
   select nullif(pg_catalog.current_setting('request.jwt.claim.sub', true), '')::uuid;
 $$;
 
+-- Primitiva local del claim firmado de Supabase; nunca consulta user_metadata.
+create function auth.jwt()
+returns jsonb language sql stable
+as $$
+  select coalesce(nullif(pg_catalog.current_setting('request.jwt.claims', true), ''), '{}')::jsonb;
+$$;
+
 grant usage on schema public to anon, authenticated, service_role;
 grant usage on schema auth to anon, authenticated, service_role;
 grant execute on function auth.uid() to anon, authenticated, service_role;
@@ -172,6 +179,213 @@ end $$;
 
 \echo 'Aplicando la migración de teléfonos compartidos...'
 \ir ../updates/2026-09-20-mvp-clientes-telefono-no-unico.sql
+
+-- Conserva definiciones y ACL históricas para detectar cambios de autorización.
+create temporary table historical_policies as
+select * from pg_catalog.pg_policies where schemaname = 'public';
+create temporary table historical_acl as
+select oid, relacl from pg_catalog.pg_class where relnamespace = 'public'::regnamespace;
+create temporary table historical_checkout as
+select pg_catalog.pg_get_functiondef('public.create_delivery_order(jsonb)'::regprocedure) as definition,
+       proacl from pg_catalog.pg_proc where oid = 'public.create_delivery_order(jsonb)'::regprocedure;
+
+\echo 'Aplicando la base administrativa...'
+\ir ../updates/2026-09-20-mvp-operadores-y-acceso.sql
+
+do $$
+declare
+  v_table regclass;
+  v_role text;
+begin
+  if (select count(*) from public.admin_operators) <> 3
+     or (select array_agg(display_name order by display_name) from public.admin_operators)
+        <> array['Alejandro', 'Jorge', 'Marianny'] then
+    raise exception 'FALLO: faltan los tres operadores aprobados.';
+  end if;
+  if exists (select 1 from public.admin_operators where active or auth_user_id is not null or not must_change_pin)
+     or exists (select 1 from private.admin_operator_credentials)
+     or exists (select 1 from private.admin_login_attempts) then
+    raise exception 'FALLO: la semilla debe quedar pendiente y sin credenciales ni intentos.';
+  end if;
+  if exists (
+    select 1 from pg_catalog.pg_attribute
+    where attrelid = 'public.admin_operators'::regclass and attname in ('pin', 'pin_hash') and not attisdropped
+  ) then
+    raise exception 'FALLO: las credenciales quedaron en public.';
+  end if;
+  foreach v_table in array array['public.admin_operators'::regclass,
+    'private.admin_operator_credentials'::regclass, 'private.admin_login_attempts'::regclass] loop
+    if not (select relrowsecurity from pg_catalog.pg_class where oid = v_table) then
+      raise exception 'FALLO: falta RLS en %.', v_table;
+    end if;
+    foreach v_role in array array['anon', 'authenticated', 'service_role'] loop
+      if pg_catalog.has_table_privilege(v_role, v_table, 'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+         or (v_table <> 'public.admin_operators'::regclass and pg_catalog.has_table_privilege(v_role, v_table, 'SELECT')) then
+        raise exception 'FALLO: permisos excesivos en % para %.', v_table, v_role;
+      end if;
+    end loop;
+    if exists (select 1 from pg_catalog.pg_class c,
+        lateral pg_catalog.aclexplode(c.relacl) a where c.oid = v_table and a.grantee = 0) then
+      raise exception 'FALLO: PUBLIC tiene acceso a %.', v_table;
+    end if;
+  end loop;
+  if exists (select 1 from pg_catalog.pg_proc p,
+      lateral pg_catalog.aclexplode(p.proacl) a
+      where p.oid = 'private.is_active_admin()'::regprocedure and a.grantee = 0)
+     or pg_catalog.has_function_privilege('anon', 'private.is_active_admin()', 'EXECUTE') then
+    raise exception 'FALLO: auxiliar ejecutable por PUBLIC o anon.';
+  end if;
+  if not exists (select 1 from pg_catalog.pg_proc
+      where oid = 'private.is_active_admin()'::regprocedure and prosecdef
+        and provolatile = 's' and proconfig @> array['search_path=""']) then
+    raise exception 'FALLO: configuración insegura del auxiliar.';
+  end if;
+  if exists (select * from historical_policies except select * from pg_catalog.pg_policies)
+     or exists (select * from pg_catalog.pg_policies where tablename <> 'admin_operators'
+       and schemaname = 'public' except select * from historical_policies)
+     or exists (select 1 from historical_acl h join pg_catalog.pg_class c on c.oid = h.oid
+       where c.relacl is distinct from h.relacl)
+     or exists (select 1 from historical_checkout h, pg_catalog.pg_proc p
+       where p.oid = 'public.create_delivery_order(jsonb)'::regprocedure
+       and (p.proacl is distinct from h.proacl or pg_catalog.pg_get_functiondef(p.oid) <> h.definition)) then
+    raise exception 'FALLO: cambió el checkout o la autorización histórica.';
+  end if;
+end $$;
+
+\echo 'Comprobando autorización y aislamiento administrativo...'
+-- Solo fixtures ya existentes en auth.users de esta base desechable.
+-- El rollback impide dejar operadores activados al ejecutar el checkout histórico.
+begin;
+update public.admin_operators set auth_user_id = '11111111-1111-4111-8111-111111111111', active = true
+where normalized_name = 'alejandro';
+update public.admin_operators set auth_user_id = '22222222-2222-4222-8222-222222222222'
+where normalized_name = 'marianny';
+
+do $$
+begin
+  begin
+    update public.admin_operators set active = true where normalized_name = 'jorge';
+    raise exception 'FALLO: se activó un operador sin Auth.';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.admin_operators set auth_user_id = '11111111-1111-4111-8111-111111111111'
+    where normalized_name = 'jorge';
+    raise exception 'FALLO: dos operadores comparten Auth.';
+  exception when unique_violation then null;
+  end;
+  begin
+    insert into private.admin_operator_credentials (operator_id, pin_hash)
+    select id, 'credencial-plana-de-prueba' from public.admin_operators where normalized_name = 'alejandro';
+    raise exception 'FALLO: se aceptó una credencial plana.';
+  exception when check_violation then null;
+  end;
+  -- Datos sintéticos, ningún PIN real ni hash se imprime.
+  insert into private.admin_operator_credentials (operator_id, pin_hash)
+  select id, public.crypt(pg_catalog.gen_random_uuid()::text, public.gen_salt('bf', 12))
+  from public.admin_operators where normalized_name = 'alejandro';
+  insert into private.admin_login_attempts (normalized_name, success, internal_reason)
+  values ('desconocido', false, 'invalid_credentials');
+end $$;
+
+set local role anon;
+do $$
+declare v_table text;
+begin
+  foreach v_table in array array['public.admin_operators', 'private.admin_operator_credentials', 'private.admin_login_attempts'] loop
+    begin
+      execute 'select * from ' || v_table;
+      raise exception 'FALLO: anon pudo leer %.', v_table;
+    exception when insufficient_privilege then null;
+    end;
+  end loop;
+end $$;
+reset role;
+
+set local role authenticated;
+do $$
+declare
+  v_claims jsonb;
+  v_table text;
+  v_changed bigint;
+begin
+  perform pg_catalog.set_config('request.jwt.claim.sub', '', true);
+  perform pg_catalog.set_config('request.jwt.claims', '{"is_anonymous":false}', true);
+  if private.is_active_admin() is distinct from false then
+    raise exception 'FALLO: sesión sin UID autorizada.';
+  end if;
+  perform pg_catalog.set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
+  foreach v_claims in array array[
+    '{"is_anonymous":true,"user_metadata":{"is_admin":true,"is_anonymous":false}}'::jsonb,
+    '{}'::jsonb, '{"is_anonymous":null}'::jsonb, '{"is_anonymous":"false"}'::jsonb
+  ] loop
+    perform pg_catalog.set_config('request.jwt.claims', v_claims::text, true);
+    if private.is_active_admin() is distinct from false or exists (select 1 from public.admin_operators) then
+      raise exception 'FALLO: anónimo o claim ausente/inválido autorizó al operador asociado.';
+    end if;
+  end loop;
+  perform pg_catalog.set_config('request.jwt.claims', '{"is_anonymous":false,"user_metadata":{"is_admin":true,"role":"admin"}}', true);
+  perform pg_catalog.set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', true);
+  if private.is_active_admin() is distinct from false or exists (select 1 from public.admin_operators) then
+    raise exception 'FALLO: usuario sin operador autorizado por user_metadata.';
+  end if;
+  perform pg_catalog.set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', true);
+  if private.is_active_admin() is distinct from false or exists (select 1 from public.admin_operators) then
+    raise exception 'FALLO: operador inactivo autorizado.';
+  end if;
+  perform pg_catalog.set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
+  if private.is_active_admin() is distinct from true
+     or (select count(*) from public.admin_operators) <> 1
+     or not exists (select 1 from public.admin_operators where normalized_name = 'alejandro') then
+    raise exception 'FALLO: operador activo no reconocido o ve fichas ajenas.';
+  end if;
+  foreach v_table in array array['private.admin_operator_credentials', 'private.admin_login_attempts'] loop
+    begin
+      execute 'select * from ' || v_table;
+      raise exception 'FALLO: incluso el operador activo pudo leer %.', v_table;
+    exception when insufficient_privilege then null;
+    end;
+  end loop;
+  begin
+    update public.admin_operators set active = true;
+    raise exception 'FALLO: operador puede cambiar autorización.';
+  exception when insufficient_privilege then null;
+  end;
+  update public.orders set status = 'entregado';
+  get diagnostics v_changed = row_count;
+  if v_changed <> 0 then
+    raise exception 'FALLO: operador ganó permisos de modificación de pedidos.';
+  end if;
+end $$;
+reset role;
+
+-- Desactivar corta la pertenencia inmediatamente, con el mismo JWT.
+update public.admin_operators set active = false where normalized_name = 'alejandro';
+set local role authenticated;
+do $$
+begin
+  if private.is_active_admin() is distinct from false or exists (select 1 from public.admin_operators) then
+    raise exception 'FALLO: desactivar no revocó la pertenencia con el JWT vigente.';
+  end if;
+end $$;
+reset role;
+
+-- Prueba RLS independiente de ACL: grants temporales, nunca en la migración.
+grant select on private.admin_operator_credentials, private.admin_login_attempts to authenticated;
+set local role authenticated;
+do $$
+begin
+  if exists (select 1 from private.admin_operator_credentials)
+     or exists (select 1 from private.admin_login_attempts) then
+    raise exception 'FALLO: RLS privada deja ver datos con un grant accidental.';
+  end if;
+end $$;
+reset role;
+rollback;
+
+-- El checkout completo se ejecuta ahora con la base administrativa instalada
+-- y claims de una sesión anónima realista, sin alterar su implementación.
+select pg_catalog.set_config('request.jwt.claims', '{"is_anonymous":true}', false);
 
 \echo 'Comprobando teléfonos compartidos y un perfil por sesión...'
 
