@@ -129,42 +129,97 @@ IPv4 mapeadas en IPv6) y calcula HMAC-SHA256 con separación de dominio. Solo
 el HMAC llega a PostgreSQL. En local directo, falla cerrado; las pruebas inyectan
 configuración y cabeceras sintéticas sin debilitar el código de producción.
 
-## Aprovisionamiento futuro (no ejecutado)
+## Aprovisionamiento inicial (manual, no ejecutado)
 
-1. Definir con el propietario tres emails **reales y controlados**, uno por
-   Alejandro, Marianny y Jorge, independientes de las sesiones invitadas. No
-   usar emails ficticios, un email compartido ni el PIN como contraseña Auth.
-2. Crear cada identidad desde Auth Dashboard o un proceso servidor controlado
-   con `auth.admin.createUser({ email, password, email_confirm: true })`.
-   `password` debe ser aleatoria y fuerte, recibida de un gestor seguro; usar
-   `email_confirm: true` solo tras comprobar la propiedad del buzón. No colocar
-   flags de autorización en `user_metadata`. No ejecutar createUser desde login.
-3. Registrar el UUID devuelto y verificarlo con `auth.admin.getUserById(id)`:
-   identidad existente, no anónima, email confirmado. La función de login no
-   aprovisiona identidades automáticamente ni inventa UUIDs.
-4. Con conexión administrativa segura y parámetros ligados, iniciar transacción,
-   bloquear la ficha por `normalized_name`, comprobar que siga sin asociación y
-   vincular el UUID real. Mantener `active = false` durante el aprovisionamiento.
-5. Obtener el PIN temporal aprobado por un canal seguro. Calcular **en un proceso
-   servidor controlado** un bcrypt de coste 12 con sal aleatoria individual por
-   operador, y persistir solo el hash en `private.admin_operator_credentials`.
-   Alternativamente, en una conexión PostgreSQL segura usar
-   `<esquema_pgcrypto>.crypt($1, <esquema_pgcrypto>.gen_salt('bf', 12))` con parámetro
-   ligado. No usar SQL con PIN literal, SQL Editor que conserve consultas,
-   argumentos de shell, salida de consola o archivos de producción con el PIN.
-   `operator_id` debe provenir de la ficha bloqueada; actualizar `pin_changed_at`.
-6. Mantener `must_change_pin = true` hasta completar la RPC de rotación descrita
-   debajo. La nueva migración está probada localmente, no aplicada al remoto por
-   este trabajo. Las futuras RPC/RLS operativas deben exigir
-   `private.is_operational_admin()`; una guarda React no basta. Actualmente un
-   operador activo solo puede leer su ficha y cambiar su PIN, no operar pedidos.
-   Los tres operadores permanecen inactivos; la activación es un paso operativo
-   explícito posterior al aprovisionamiento y verificación del entorno.
-7. Activar únicamente tras verificar identidad, hash, rotación y configuración.
-   No cambiar credenciales, emails ni asociaciones durante emisión de links.
-   `generateLink` puede crear una identidad si su email deja de existir entre
-   comprobaciones; el código rechaza un id distinto, pero no elimina cuentas
-   automáticamente. Esa carrera requiere coordinación operativa.
+La utilidad local `scripts/provision-admin-operators.mjs` automatiza únicamente el
+vínculo de UUID y la credencial inicial. No crea usuarios Auth, no activa operadores
+y no contiene el PIN. Usa `psql` 17 con `sslmode=require`, bind parameters y una
+transacción; la contraseña de PostgreSQL y el PIN se solicitan sin eco y se descartan
+al terminar. La utilidad no imprime resultados de SQL, hashes ni valores sensibles.
+En cada modo comprueba la asociación exacta nombre–UUID–correo en `auth.users`,
+`is_anonymous=false`, `email_confirmed_at is not null`, UUID no repetidos y el estado
+inicial de las filas. La escritura repite esas comprobaciones bajo bloqueo y revierte
+la transacción completa si el recuento final no es exactamente tres.
+
+### Paso 1: crear identidades en Supabase Dashboard
+
+En el proyecto correcto, abrir **Authentication → Users → Add user → Create new
+user**. Crear una identidad por fila, con **Auto Confirm User** activado y una
+contraseña aleatoria fuerte distinta para cada buzón; esa contraseña Auth no es el
+PIN administrativo. No añadir autorización en `user_metadata`. Guardar solo en el
+gestor seguro de contraseñas el vínculo temporal entre persona, correo y contraseña.
+
+Crear exactamente estas identidades, sin reutilizar un correo:
+
+| Operador | Correo confirmado |
+|---|---|
+| Alejandro | `rondon.jose.757@gmail.com` |
+| Marianny | `mariannymoran2405@gmail.com` |
+| Jorge | `aleteexplica@gmail.com` |
+
+Después de cada alta, copiar el UUID mostrado por Dashboard. No pegar aquí UUID,
+contraseñas, tokens ni claves. Confirmar que cada usuario no sea anónimo y que el
+correo aparezca confirmado; la Edge Function rechaza identidades no confirmadas.
+
+### Paso 2: validar y escribir el vínculo y hash
+
+Obtener desde **Project Settings → Database → Connection string** una URL de
+PostgreSQL sin contraseña embebida, añadir `sslmode=require` y exportarla solo en
+la terminal actual:
+
+```sh
+export ANDESMARKET_ADMIN_DATABASE_URL='postgresql://USUARIO@HOST:5432/postgres?sslmode=require'
+node scripts/provision-admin-operators.mjs --check
+```
+
+El primer comando solicita los tres UUID en orden Alejandro, Marianny y Jorge y la
+contraseña PostgreSQL de forma oculta. `--check` verifica pgcrypto, que no haya UUID
+repetidos, que cada UUID corresponda al correo confirmado y no anónimo correcto, y
+que las filas correspondientes sigan sin UUID, inactivas, con `must_change_pin=true`
+y sin credencial; cierra la transacción sin escribir.
+
+Si la validación es correcta, ejecutar en la misma terminal:
+
+```sh
+node scripts/provision-admin-operators.mjs
+unset ANDESMARKET_ADMIN_DATABASE_URL
+```
+
+La utilidad vuelve a pedir los UUID y la contraseña, solicita dos veces el PIN
+temporal aprobado por el responsable sin mostrarlo, calcula una sal bcrypt coste
+12 distinta por operador mediante pgcrypto y guarda únicamente `pin_hash`. En la
+misma transacción vuelve a comprobar correo, confirmación, anonimato, nombre, estado
+inicial y ausencia de credencial; vincula los UUID, conserva `active=false` y fuerza
+`must_change_pin=true`. Si una fila ya fue vinculada, tiene credencial o una
+asociación no coincide, aborta sin sobrescribir ni dejar cambios parciales. No
+ejecutar este proceso desde SQL Editor ni con el PIN como argumento de shell.
+
+Al finalizar, borrar cualquier variable de entorno usada y cerrar la terminal. No
+guardar la URL con contraseña, el PIN, hashes, salidas de `psql` ni UUID en Git,
+capturas, logs, Vercel o el frontend. La utilidad se puede revisar localmente con:
+
+```sh
+npm run test:unit
+```
+
+Las pruebas de aprovisionamiento usan UUID y PIN sintéticos construidos en memoria;
+no se conectan a Supabase.
+
+### Controles posteriores
+
+- Verificar en Dashboard que cada identidad sigue confirmada, no es anónima y
+  corresponde al correo correcto. La función de login no crea usuarios ni inventa
+  UUIDs.
+- Confirmar por una consulta administrativa segura que las tres filas siguen con
+  `active=false` y `must_change_pin=true`; no activar operadores en esta fase.
+- Completar el cambio individual mediante `public.change_admin_pin` antes de
+  conceder cualquier operación futura. Las RPC/RLS operativas deberán exigir
+  `private.is_operational_admin()`; una guarda React no basta.
+- Revisar logs de plataforma, PostgREST y PostgreSQL para asegurar que ningún
+  middleware registre body, Authorization, bind parameters o respuestas Auth.
+  `generateLink` puede crear una identidad si el correo desaparece entre
+  comprobaciones; no borrar cuentas automáticamente: detener el proceso y revisar
+  la carrera operativa.
 
 Antes de usar secretos reales, revisar la configuración de logs de plataforma,
 PostgREST y PostgreSQL: ningún middleware debe registrar body/Authorization,
