@@ -11,6 +11,7 @@ const CatalogPage = lazy(() => import('./pages/CatalogPage'))
 const CartPage = lazy(() => import('./pages/CartPage'))
 const ConfirmationPage = lazy(() => import('./pages/ConfirmationPage'))
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'))
+const AdminRoutes = lazy(() => import('./pages/admin/AdminRoutes'))
 
 function LazyPage({ children }) {
   return (
@@ -33,6 +34,7 @@ export default function App() {
         <CartProvider>
           <PwaInstall />
           <Routes>
+            <Route path="admin/*" element={<LazyPage><AdminRoutes /></LazyPage>} />
             <Route element={<AppLayout />}>
               <Route path="/" element={<HomePage />} />
               <Route path="catalogo" element={<LazyPage><CatalogPage /></LazyPage>} />

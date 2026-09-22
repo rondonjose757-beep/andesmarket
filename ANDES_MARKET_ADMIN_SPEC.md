@@ -209,6 +209,17 @@ concede permisos de pedidos/dashboard ni revoca sesiones Auth existentes.
 Pruebas locales verifican rechazos, rollback y cambios/fallos concurrentes.
 Contrato, respuestas y riesgos en `docs/admin-login-backend.md`.
 
+### Frontend inicial administrativo (local, 22-09-2026)
+
+Implementadas las rutas `/admin/login`, `/admin/cambiar-pin` y `/admin` con una
+entrada lazy y páginas diferidas. Provider y cliente separados: sessionStorage,
+clave `sb-andesmarket-admin-auth`, canje inmediato del token sin persistirlo.
+La ficha del operador validada bajo RLS determina pertenencia y cambio pendiente;
+se relee tras la RPC antes de permitir bienvenida. No hay consultas de pedidos,
+operaciones ni enlaces desde la tienda. Checkout, AuthProvider y carrito públicos
+permanecen intactos. Chunks admin excluidos del precaché PWA. Pruebas con red
+simulada; conexión real y despliegue pendientes. Ver `docs/admin-frontend.md`.
+
 ### Operadores iniciales
 
 - Alejandro

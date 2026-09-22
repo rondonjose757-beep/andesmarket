@@ -2,8 +2,9 @@
 
 Implementado localmente el 21-09-2026. No desplegado. La aplicación de la migración
 base del 20-09 fue confirmada por el propietario; esta fase no consulta el remoto.
-No hay pantalla, cliente Auth administrativo, provider, ruta `/admin` ni cambios
-en la tienda. La implementación requiere `pgcrypto` y la base de operadores previa.
+El frontend inicial se añadió localmente el 22-09-2026 sin modificar la tienda;
+ver [admin-frontend.md](admin-frontend.md). La implementación del backend requiere
+`pgcrypto` y la base de operadores previa. No se desplegó mediante esta tarea.
 
 ## Contrato HTTP
 

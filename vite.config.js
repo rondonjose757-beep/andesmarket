@@ -5,12 +5,24 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  build: {
+    manifest: true,
+    rolldownOptions: {
+      output: {
+        // Directorio explícito para excluir todos los chunks admin del precaché.
+        chunkFileNames: (chunk) => chunk.moduleIds.some((id) =>
+          /\/src\/(?:pages\/admin\/|components\/admin\/|layouts\/Admin|state\/Admin|lib\/admin)/.test(id))
+          ? 'assets/admin/[name]-[hash].js' : 'assets/[name]-[hash].js',
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,
+      workbox: { globIgnores: ['**/admin/**'] },
       manifest: {
         name: 'AndesMarket',
         short_name: 'AndesMarket',

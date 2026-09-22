@@ -166,9 +166,16 @@ de saneamiento del X-Forwarded-For hospedado falla cerrado. Ver contrato,
 aprovisionamiento y restricciones en `docs/admin-login-backend.md`.
 Faltan aprovisionamiento real, aplicar/verificar la rotación de PIN, verificación de gateway/runtime
 y limpieza programada. `last_login_at` registra validación del PIN, no canje Auth.
-El esquema `private` no se expone en la Data API. La futura sesión administrativa
-será independiente de la sesión anónima, sin modificar `AuthProvider` ni checkout.
-Todavía no existen rutas `/admin`, pantalla de login ni componentes administrativos.
+El esquema `private` no se expone en la Data API. La sesión administrativa
+es independiente de la sesión anónima, sin modificar `AuthProvider` ni checkout.
+El frontend inicial administrativo está implementado localmente: `/admin/login`,
+`/admin/cambiar-pin` y `/admin` (bienvenida sin operaciones). `AdminRoutes` es lazy
+y monta AdminAuthProvider solo en esa rama. El cliente independiente usa
+sessionStorage con `sb-andesmarket-admin-auth`; no modificar el cliente público,
+AuthProvider ni carrito para integrar administración. El login envía `{nombre,pin}`
+y canjea el token en memoria. La ficha RLS decide el cambio obligatorio de PIN.
+Los chunks `assets/admin/` quedan fuera del precaché PWA. Ver
+`docs/admin-frontend.md` y `node --test tests/build/admin-bundle.test.js` tras build.
 
 La rotación local está en `2026-09-21-admin-pin-obligatorio.sql`, después del login.
 `public.change_admin_pin(current_pin,new_pin)` es puente invoker a la validación
@@ -243,9 +250,9 @@ teléfono e Instagram mediante `ContactMenu`.
   por `Header.jsx` y `CatalogHeader.jsx` mediante `BrandLogo.jsx`. Se muestra sobre
   fondo claro y se encuadran sus márgenes transparentes sin modificar la imagen.
   Siguen pendientes los íconos definitivos en `public/icons/`.
-- No hay panel de administración, pagos en línea, variantes de producto ni
+- No hay panel administrativo operativo, pagos en línea, variantes de producto ni
   control de stock al confirmar pedidos.
-- Veintidós pruebas de navegador, diez unitarias y el arnés SQL de
+- Cuarenta pruebas de navegador, quince unitarias y el arnés SQL de
   `supabase/tests/` cubren catálogo, checkout delivery, creación atómica, RLS,
   recibo y regresiones visuales. Playwright usa Supabase ficticio y no crea
   pedidos reales; el arnés SQL usa PostgreSQL 17 desechable y nunca se conecta
