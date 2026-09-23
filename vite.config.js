@@ -22,7 +22,13 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,
-      workbox: { globIgnores: ['**/admin/**'] },
+      workbox: {
+        globIgnores: ['**/admin/**'],
+        // El panel administrativo debe obtener siempre el shell vigente.
+        // Evita que una instalación PWA antigua resuelva /admin/* con un
+        // index.html cacheado que aún no conoce las rutas administrativas.
+        navigateFallbackDenylist: [/^\/admin(?:\/|$)/],
+      },
       manifest: {
         name: 'AndesMarket',
         short_name: 'AndesMarket',
