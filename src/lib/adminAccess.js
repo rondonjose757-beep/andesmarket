@@ -23,9 +23,9 @@ export function operatorAccess(user, operator) {
   return operator.must_change_pin ? 'change-pin' : 'ready'
 }
 
-export async function loginAdmin({ client, url, nombre, pin, fetcher = fetch }) {
+export async function loginAdmin({ client, nombre, pin, fetcher = fetch }) {
   try {
-    const response = await fetcher(`${url}/functions/v1/admin-login`, {
+    const response = await fetcher('/api/admin-login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nombre: nombre.trim(), pin }),
       credentials: 'omit', cache: 'no-store', signal: AbortSignal.timeout(20000),

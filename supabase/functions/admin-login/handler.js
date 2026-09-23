@@ -65,12 +65,14 @@ export async function readPayload(request) {
   }
 }
 
-export function trustedNetworkAddress(headers, { trustedProxy, deploymentId }) {
-  // La documentación pública confirma XFF, pero no garantiza su saneamiento
-  // para todos los proxies. Requiere verificación operativa explícita del gateway
-  // hospedado. No habilitar este perfil para tráfico directo/self-hosted.
-  if (trustedProxy !== 'supabase-single-xff' || !deploymentId) throw new Error(LOGIN_ERROR)
-  const ip = headers.get('x-forwarded-for')?.trim()
+export function trustedNetworkAddress(headers, { trustedProxy, proxySecret }) {
+  // La petición debe haber pasado por la Function de Vercel, que obtiene la IP
+  // de una cabecera que Vercel sobrescribe. El sello compartido nunca llega al
+  // navegador, por lo que una llamada directa no puede suplantar esa IP.
+  if (trustedProxy !== 'vercel-signed-proxy-v1'
+    || typeof proxySecret !== 'string' || !/^[0-9a-f]{64}$/i.test(proxySecret)
+    || headers.get('x-admin-login-proxy') !== proxySecret) throw new Error(LOGIN_ERROR)
+  const ip = headers.get('x-admin-client-ip')?.trim()
   // Nada de elegir el primer elemento de una cadena controlable por el cliente.
   // Sin fallbacks a x-real-ip, cf-connecting-ip ni campos del cuerpo.
   if (!ip || ip.includes(',') || ip.includes('%') || !isIP(ip)) throw new Error(LOGIN_ERROR)

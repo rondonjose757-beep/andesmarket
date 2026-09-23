@@ -10,7 +10,7 @@ export default function AdminLayout() {
         <span className="rounded-full bg-brand-light px-3 py-1 text-xs font-bold uppercase tracking-wider text-brand-dark">Administración</span>
       </div>
     </header>
-    <main id="admin-contenido" className="mx-auto max-w-lg px-5 py-10 sm:py-16"><Outlet /></main>
+    <main id="admin-contenido" className="mx-auto max-w-4xl px-5 py-10 sm:py-16"><Outlet /></main>
     <footer className="px-5 pb-8 text-center text-xs text-muted">AndesMarket · Acceso exclusivo de operadores</footer>
   </div>
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { adminClient, adminSupabaseUrl, clearAdminSession } from '../lib/adminSupabaseClient'
+import { adminClient, clearAdminSession } from '../lib/adminSupabaseClient'
 import { ADMIN_BLOCKED, ADMIN_LOGIN_ERROR, loginAdmin, operatorAccess } from '../lib/adminAccess'
 import { AdminAuthContext } from './AdminAuthContext'
 
@@ -74,7 +74,7 @@ export default function AdminAuthProvider({ children }) {
     setBusy(true)
     setMessage('')
     try {
-      const result = await loginAdmin({ client: adminClient, url: adminSupabaseUrl, nombre, pin })
+      const result = await loginAdmin({ client: adminClient, nombre, pin })
       if (!alive.current) { await clearAdminSession(); return }
       if (!result.ok) { setMessage(result.blocked ? ADMIN_BLOCKED : ADMIN_LOGIN_ERROR); return }
       await adminClient.auth.startAutoRefresh()

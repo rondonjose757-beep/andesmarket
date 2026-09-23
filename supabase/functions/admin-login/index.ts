@@ -7,7 +7,7 @@ Deno.serve(createAdminLoginHandler({
   config: () => ({
     hmacSecret: Deno.env.get('ADMIN_LOGIN_HMAC_SECRET'),
     trustedProxy: Deno.env.get('ADMIN_LOGIN_TRUSTED_PROXY'),
-    deploymentId: Deno.env.get('DENO_DEPLOYMENT_ID'),
+    proxySecret: Deno.env.get('ADMIN_LOGIN_PROXY_SECRET'),
   }),
   createBackend: () => {
     const url = Deno.env.get('SUPABASE_URL')
